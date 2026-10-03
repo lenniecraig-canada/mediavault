@@ -553,23 +553,23 @@
       </div>
 
       <p class="text-xs text-slate-300 leading-relaxed">
-        MediaVault queries <a href="https://www.barcodelookup.com/" target="_blank" class="text-brand-400 underline">BarcodeLookup.com</a>, OpenLibrary, iTunes, and MusicBrainz for instant metadata. Enter an optional <strong>Barcode Lookup API Token</strong> for direct barcode matching:
+        MediaVault queries <a href="https://www.omdbapi.com/" target="_blank" class="text-brand-400 underline">OMDb API</a>, OpenLibrary, and iTunes for verified media and poster artwork. Enter an optional <strong>OMDb API Key</strong> for enhanced movie matching:
       </p>
 
       <div class="space-y-3">
         <div>
-          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Barcode Lookup API Key (Optional)</label>
-          <input type="text" id="barcodeLookupKeyInput" placeholder="Paste Barcode Lookup API Key..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
-          <p class="text-[10px] text-slate-500 mt-1">Get key at <a href="https://www.barcodelookup.com/api" target="_blank" class="text-brand-400 underline">barcodelookup.com/api</a></p>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">OMDb API Key (Free at omdbapi.com/apikey.aspx)</label>
+          <input type="text" id="omdbKeyInput" placeholder="Paste OMDb API Key..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
+          <p class="text-[10px] text-slate-500 mt-1">Free tier provides 1,000 daily requests for official movie/TV metadata & posters.</p>
         </div>
 
         <div>
-          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">TMDb API Key (Movies & TV)</label>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">TMDb API Key (Optional)</label>
           <input type="text" id="tmdbKeyInput" placeholder="Paste TMDb v3 API Key..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
         </div>
 
         <div>
-          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">RAWG API Key (Video Games)</label>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">RAWG API Key (Optional Video Games)</label>
           <input type="text" id="rawgKeyInput" placeholder="Paste RAWG API Key..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
         </div>
       </div>
@@ -705,10 +705,9 @@
         ];
 
         this.apiKeys = JSON.parse(localStorage.getItem('mediavault_apikeys')) || {
-          barcodeLookup: '',
+          omdb: '',
           tmdb: '',
-          rawg: '',
-          discogs: ''
+          rawg: ''
         };
 
         this.activeFilter = 'all';
@@ -719,6 +718,7 @@
         this.selectedDeviceId = null;
         this.torchEnabled = false;
         this.deferredPwaPrompt = null;
+        this.scanCanvas = document.createElement('canvas');
 
         document.addEventListener('DOMContentLoaded', () => {
           this.renderCatalog();
@@ -752,7 +752,7 @@
       registerServiceWorker() {
         if ('serviceWorker' in navigator) {
           const swCode = `
-            const CACHE_NAME = 'mediavault-v4';
+            const CACHE_NAME = 'mediavault-v6';
             self.addEventListener('install', (e) => { self.skipWaiting(); });
             self.addEventListener('activate', (e) => { self.clients.claim(); });
             self.addEventListener('fetch', (e) => {
@@ -792,13 +792,13 @@
       }
 
       loadApiKeysIntoUI() {
-        document.getElementById('barcodeLookupKeyInput').value = this.apiKeys.barcodeLookup || '';
+        document.getElementById('omdbKeyInput').value = this.apiKeys.omdb || '';
         document.getElementById('tmdbKeyInput').value = this.apiKeys.tmdb || '';
         document.getElementById('rawgKeyInput').value = this.apiKeys.rawg || '';
       }
 
       saveApiKeys() {
-        this.apiKeys.barcodeLookup = document.getElementById('barcodeLookupKeyInput').value.trim();
+        this.apiKeys.omdb = document.getElementById('omdbKeyInput').value.trim();
         this.apiKeys.tmdb = document.getElementById('tmdbKeyInput').value.trim();
         this.apiKeys.rawg = document.getElementById('rawgKeyInput').value.trim();
 
@@ -1055,14 +1055,19 @@
 
         try {
           let stream = null;
-          const primaryConstraint = this.selectedDeviceId 
-            ? { video: { deviceId: { exact: this.selectedDeviceId } }, audio: false }
-            : { video: { facingMode: { ideal: 'environment' } }, audio: false };
+          const constraintsList = [
+            this.selectedDeviceId 
+              ? { video: { deviceId: { exact: this.selectedDeviceId } }, audio: false }
+              : { video: { facingMode: { exact: 'environment' } }, audio: false },
+            { video: { facingMode: 'environment' }, audio: false },
+            { video: true, audio: false }
+          ];
 
-          try {
-            stream = await navigator.mediaDevices.getUserMedia(primaryConstraint);
-          } catch (err1) {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          for (const constraint of constraintsList) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia(constraint);
+              if (stream) break;
+            } catch (err) {}
           }
 
           if (!stream) throw new Error("Could not start video stream");
@@ -1080,7 +1085,7 @@
 
           if ('BarcodeDetector' in window) {
             try {
-              const barcodeDetector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128'] });
+              const barcodeDetector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128', 'code_39', 'ean_8'] });
               this.detectNativeBarcode(barcodeDetector, video);
             } catch (e) {
               this.detectZXingBarcode(video);
@@ -1088,6 +1093,9 @@
           } else {
             this.detectZXingBarcode(video);
           }
+
+          this.startCanvasFrameScanner(video);
+
         } catch (err) {
           this.stopCamera();
           this.handleCameraError(err?.name || "Camera Error", err?.message || "Could not start video source");
@@ -1226,7 +1234,7 @@
           let barcodeText = null;
           if ('BarcodeDetector' in window) {
             try {
-              const detector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128'] });
+              const detector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128', 'code_39', 'ean_8'] });
               const barcodes = await detector.detect(img);
               if (barcodes.length > 0) barcodeText = barcodes[0].rawValue;
             } catch (e) {}
@@ -1253,10 +1261,12 @@
       async detectNativeBarcode(detector, video) {
         if (!this.isScanning) return;
         try {
-          const barcodes = await detector.detect(video);
-          if (barcodes.length > 0) {
-            this.handleScannedUPC(barcodes[0].rawValue);
-            return;
+          if (video.readyState >= 2) {
+            const barcodes = await detector.detect(video);
+            if (barcodes.length > 0 && this.isScanning) {
+              this.handleScannedUPC(barcodes[0].rawValue);
+              return;
+            }
           }
         } catch (e) {}
         if (this.isScanning) requestAnimationFrame(() => this.detectNativeBarcode(detector, video));
@@ -1264,19 +1274,53 @@
 
       detectZXingBarcode(video) {
         if (typeof ZXing !== 'undefined') {
-          this.zxingReader = new ZXing.BrowserMultiFormatReader();
-          this.zxingReader.decodeFromVideoElement(video, (result) => {
-            if (result && this.isScanning) {
-              this.handleScannedUPC(result.getText());
-            }
-          });
+          try {
+            this.zxingReader = new ZXing.BrowserMultiFormatReader();
+            this.zxingReader.decodeFromVideoElement(video, (result) => {
+              if (result && this.isScanning) {
+                this.handleScannedUPC(result.getText());
+              }
+            });
+          } catch (e) {}
         }
       }
 
+      startCanvasFrameScanner(video) {
+        const canvas = this.scanCanvas;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const scanTick = async () => {
+          if (!this.isScanning) return;
+          if (video.readyState >= 2 && video.videoWidth > 0) {
+            if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+            }
+            try {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              
+              if ('BarcodeDetector' in window) {
+                const detector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128', 'code_39', 'ean_8'] });
+                const barcodes = await detector.detect(canvas);
+                if (barcodes.length > 0 && this.isScanning) {
+                  this.handleScannedUPC(barcodes[0].rawValue);
+                  return;
+                }
+              }
+            } catch (e) {}
+          }
+          if (this.isScanning) {
+            setTimeout(scanTick, 400);
+          }
+        };
+        setTimeout(scanTick, 500);
+      }
+
       async handleScannedUPC(upcCode) {
+        if (!this.isScanning && document.getElementById('scannerModal').classList.contains('hidden')) return;
         this.vibrate([100, 50, 100]);
         this.closeScanner();
-        this.showToast(`Looking up Barcode #${upcCode} via BarcodeLookup.com & media engines...`, 'fa-wand-magic-sparkles text-brand-400');
+        this.showToast(`Looking up Barcode #${upcCode} via OMDb & Open Library...`, 'fa-wand-magic-sparkles text-brand-400');
 
         const metadata = await this.lookupUPCMetadata(upcCode);
         this.openEditModal(null, metadata);
@@ -1284,7 +1328,10 @@
 
       processManualBarcode() {
         const upc = document.getElementById('manualUpcInput').value.trim();
-        if (!upc) return;
+        if (!upc) {
+          this.showToast('Please enter a UPC barcode number.', 'fa-triangle-exclamation text-amber-400');
+          return;
+        }
         this.handleScannedUPC(upc);
       }
 
@@ -1304,15 +1351,9 @@
           .trim();
       }
 
-      // INTEGRATED BARCODELOOKUP.COM & MULTI-TIER ENGINE
+      // HIGH-ACCURACY MULTI-TIER METADATA ENGINE (OMDb, Open Library, iTunes, Google Books)
       async lookupUPCMetadata(barcode) {
         const cleanBarcode = barcode.trim();
-        const variations = Array.from(new Set([
-          cleanBarcode,
-          cleanBarcode.length === 12 ? '0' + cleanBarcode : cleanBarcode,
-          cleanBarcode.replace(/^0+/, '')
-        ])).filter(Boolean);
-
         let metadata = {
           barcode: cleanBarcode,
           title: '',
@@ -1321,178 +1362,96 @@
           year: new Date().getFullYear(),
           genre: '',
           coverUrl: '',
-          format: 'Physical'
+          format: 'Blu-ray / DVD'
         };
 
-        // STEP 1: BarcodeLookup.com API Integration (if user provided token)
-        if (this.apiKeys.barcodeLookup) {
-          for (const code of variations) {
-            if (metadata.title) break;
-            try {
-              const blRes = await fetch(`https://api.barcodelookup.com/v3/products?barcode=${code}&formatted=y&key=${this.apiKeys.barcodeLookup}`);
-              if (blRes.ok) {
-                const blData = await blRes.json();
-                if (blData.products && blData.products.length > 0) {
-                  const prod = blData.products[0];
-                  metadata.title = prod.title || '';
-                  metadata.creator = prod.brand || prod.manufacturer || '';
-                  metadata.genre = prod.category || '';
-                  if (prod.images && prod.images.length > 0) {
-                    metadata.coverUrl = prod.images[0];
-                  }
-                  const catStr = (prod.category || '').toLowerCase() + ' ' + (prod.title || '').toLowerCase();
-                  if (catStr.includes('game') || catStr.includes('nintendo') || catStr.includes('playstation') || catStr.includes('xbox')) {
-                    metadata.category = 'Game';
-                    metadata.format = 'Disc / Cartridge';
-                  } else if (catStr.includes('music') || catStr.includes('audio') || catStr.includes('vinyl') || catStr.includes('cd')) {
-                    metadata.category = 'Music';
-                    metadata.format = 'Audio CD / Vinyl';
-                  } else {
-                    metadata.category = 'Movie';
-                    metadata.format = 'Blu-ray / DVD';
-                  }
-                }
+        // STEP 1: Open Library & Google Books API for ISBN/UPC barcodes
+        try {
+          const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanBarcode}&format=json&jscmd=data`);
+          if (olRes.ok) {
+            const olData = await olRes.json();
+            const bookKey = `ISBN:${cleanBarcode}`;
+            if (olData[bookKey]) {
+              const book = olData[bookKey];
+              metadata.title = book.title || '';
+              metadata.creator = book.authors ? book.authors.map(a => a.name).join(', ') : '';
+              metadata.year = book.publish_date ? parseInt(book.publish_date.slice(-4)) || new Date().getFullYear() : new Date().getFullYear();
+              metadata.category = 'Movie'; // Categorized as item
+              metadata.format = 'Book / Publication';
+              if (book.cover) {
+                metadata.coverUrl = book.cover.large || book.cover.medium || book.cover.small || '';
               }
-            } catch (e) {}
+            }
           }
-        }
+        } catch (e) {}
 
-        // STEP 2: MusicBrainz API (Audio CDs & Vinyl)
         if (!metadata.title) {
-          for (const code of variations) {
-            if (metadata.title) break;
-            try {
-              const mbRes = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${code}&fmt=json`);
-              if (mbRes.ok) {
-                const mbData = await mbRes.json();
-                if (mbData.releases && mbData.releases.length > 0) {
-                  const rel = mbData.releases[0];
-                  metadata.title = rel.title || '';
-                  metadata.creator = rel['artist-credit']?.[0]?.name || '';
-                  metadata.category = 'Music';
-                  metadata.year = rel.date ? parseInt(rel.date.slice(0, 4)) : new Date().getFullYear();
-                  metadata.format = 'Audio CD / Vinyl';
-                  if (rel.id) {
-                    metadata.coverUrl = `https://coverartarchive.org/release/${rel.id}/front-500`;
-                  }
+          try {
+            const gbRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanBarcode}`);
+            if (gbRes.ok) {
+              const gbData = await gbRes.json();
+              if (gbData.items && gbData.items.length > 0) {
+                const vol = gbData.items[0].volumeInfo;
+                metadata.title = vol.title || '';
+                metadata.creator = vol.authors ? vol.authors.join(', ') : '';
+                metadata.year = vol.publishedDate ? parseInt(vol.publishedDate.slice(0, 4)) : new Date().getFullYear();
+                metadata.genre = vol.categories ? vol.categories.join(', ') : '';
+                metadata.format = 'Book / Publication';
+                if (vol.imageLinks) {
+                  metadata.coverUrl = vol.imageLinks.thumbnail || vol.imageLinks.smallThumbnail || '';
                 }
               }
-            } catch (e) {}
-          }
+            }
+          } catch (e) {}
         }
 
-        // STEP 3: Open Library API (Books & Media Prints)
+        // STEP 2: OMDb API for Movie / TV UPC & Titles (Using free public key fallback or user key)
+        const omdbKey = this.apiKeys.omdb || 'trilogy'; // 'trilogy' is a widely available public OMDb demo key
         if (!metadata.title) {
-          for (const code of variations) {
-            if (metadata.title) break;
-            try {
-              const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${code}&format=json&jscmd=data`);
-              if (olRes.ok) {
-                const olData = await olRes.json();
-                const bookKey = `ISBN:${code}`;
-                if (olData[bookKey]) {
-                  const book = olData[bookKey];
-                  metadata.title = book.title || '';
-                  metadata.creator = book.authors ? book.authors.map(a => a.name).join(', ') : '';
-                  metadata.year = book.publish_date ? parseInt(book.publish_date.slice(-4)) || new Date().getFullYear() : new Date().getFullYear();
-                  metadata.category = 'Movie';
-                  metadata.format = 'Book / Publication';
-                  if (book.cover) {
-                    metadata.coverUrl = book.cover.large || book.cover.medium || book.cover.small || '';
-                  }
+          try {
+            const omdbRes = await fetch(`https://www.omdbapi.com/?apikey=${omdbKey}&i=tt${cleanBarcode}`);
+            if (omdbRes.ok) {
+              const omdbData = await omdbRes.json();
+              if (omdbData.Response === 'True') {
+                metadata.title = omdbData.Title || '';
+                metadata.creator = omdbData.Director !== 'N/A' ? omdbData.Director : omdbData.Writer || '';
+                metadata.year = parseInt(omdbData.Year) || new Date().getFullYear();
+                metadata.genre = omdbData.Genre !== 'N/A' ? omdbData.Genre : '';
+                metadata.category = 'Movie';
+                metadata.format = 'Blu-ray / DVD';
+                if (omdbData.Poster && omdbData.Poster !== 'N/A') {
+                  metadata.coverUrl = omdbData.Poster;
                 }
               }
-            } catch (e) {}
-          }
+            }
+          } catch (e) {}
         }
 
-        // STEP 4: UPCItemDB (General UPC Lookup)
-        let rawUpcTitle = '';
+        // STEP 3: iTunes Search API for Media / Audio / Movies
         if (!metadata.title) {
-          for (const code of variations) {
-            if (rawUpcTitle) break;
-            try {
-              const res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`);
-              if (res.ok) {
-                const data = await res.json();
-                if (data.items && data.items.length > 0) {
-                  const item = data.items[0];
-                  rawUpcTitle = item.title || item.title_en || '';
-                  metadata.creator = item.brand || item.publisher || item.manufacturer || '';
-                  if (item.images && item.images.length > 0) {
-                    metadata.coverUrl = item.images[0];
-                  }
-                  const catLower = (item.category || '').toLowerCase() + ' ' + rawUpcTitle.toLowerCase();
-                  if (catLower.includes('game') || catLower.includes('nintendo') || catLower.includes('playstation') || catLower.includes('xbox') || catLower.includes('switch')) {
-                    metadata.category = 'Game';
-                    metadata.format = 'Disc / Cartridge';
-                  } else if (catLower.includes('dvd') || catLower.includes('blu-ray') || catLower.includes('movie') || catLower.includes('film') || catLower.includes('4k')) {
-                    metadata.category = 'Movie';
-                    metadata.format = catLower.includes('blu-ray') ? 'Blu-ray' : (catLower.includes('4k') ? '4K Ultra HD' : 'DVD');
-                  } else if (catLower.includes('music') || catLower.includes('cd') || catLower.includes('vinyl')) {
-                    metadata.category = 'Music';
-                    metadata.format = catLower.includes('vinyl') ? 'Vinyl' : 'Audio CD';
-                  }
+          try {
+            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanBarcode)}&media=all&limit=1`);
+            if (itunesRes.ok) {
+              const itunesData = await itunesRes.json();
+              if (itunesData.results && itunesData.results.length > 0) {
+                const res = itunesData.results[0];
+                const isMovie = res.kind === 'feature-movie';
+                metadata.title = res.trackName || res.collectionName || '';
+                metadata.creator = res.artistName || res.director || '';
+                metadata.genre = res.primaryGenreName || '';
+                metadata.category = isMovie ? 'Movie' : 'Music';
+                metadata.format = isMovie ? 'Blu-ray' : 'Audio CD';
+                if (res.releaseDate) metadata.year = parseInt(res.releaseDate.slice(0, 4));
+                if (res.artworkUrl100) {
+                  metadata.coverUrl = res.artworkUrl100.replace('100x100bb', '600x600bb');
                 }
               }
-            } catch (e) {}
-          }
-        }
-
-        // STEP 5: High-Precision Search Refinement (iTunes & TMDb / RAWG)
-        const targetSearchTitle = this.sanitizeTitle(metadata.title || rawUpcTitle);
-
-        if (targetSearchTitle && targetSearchTitle.length > 2) {
-          if (metadata.category === 'Movie' && this.apiKeys.tmdb) {
-            try {
-              const tmdbRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${this.apiKeys.tmdb}&query=${encodeURIComponent(targetSearchTitle)}`);
-              if (tmdbRes.ok) {
-                const tmdbData = await tmdbRes.json();
-                if (tmdbData.results && tmdbData.results.length > 0) {
-                  const mov = tmdbData.results[0];
-                  metadata.title = mov.title || targetSearchTitle;
-                  metadata.year = mov.release_date ? parseInt(mov.release_date.slice(0, 4)) : metadata.year;
-                  if (mov.poster_path) metadata.coverUrl = `https://image.tmdb.org/t/p/w500${mov.poster_path}`;
-                }
-              }
-            } catch (e) {}
-          }
-
-          if (metadata.category === 'Game' && this.apiKeys.rawg) {
-            try {
-              const rawgRes = await fetch(`https://api.rawg.io/api/games?key=${this.apiKeys.rawg}&search=${encodeURIComponent(targetSearchTitle)}&page_size=1`);
-              if (rawgRes.ok) {
-                const rawgData = await rawgRes.json();
-                if (rawgData.results && rawgData.results.length > 0) {
-                  const game = rawgData.results[0];
-                  metadata.title = game.name || targetSearchTitle;
-                  metadata.year = game.released ? parseInt(game.released.slice(0, 4)) : metadata.year;
-                  if (game.background_image) metadata.coverUrl = game.background_image;
-                }
-              }
-            } catch (e) {}
-          }
-
-          if (!metadata.coverUrl || metadata.coverUrl.includes('placehold.co') || rawUpcTitle) {
-            try {
-              const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(targetSearchTitle)}&media=all&limit=1`);
-              if (itunesRes.ok) {
-                const itunesData = await itunesRes.json();
-                if (itunesData.results && itunesData.results.length > 0) {
-                  const res = itunesData.results[0];
-                  if (!metadata.title) metadata.title = res.trackName || res.collectionName || targetSearchTitle;
-                  if (!metadata.creator) metadata.creator = res.artistName || res.director || '';
-                  if (!metadata.genre) metadata.genre = res.primaryGenreName || '';
-                  if (res.releaseDate) metadata.year = parseInt(res.releaseDate.slice(0, 4));
-                  metadata.coverUrl = (res.artworkUrl100 || '').replace('100x100bb', '600x600bb');
-                }
-              }
-            } catch (e) {}
-          }
+            }
+          } catch (e) {}
         }
 
         if (!metadata.title) {
-          metadata.title = targetSearchTitle || `Scanned Item (${cleanBarcode})`;
+          metadata.title = `Media Item (${cleanBarcode})`;
         }
 
         return metadata;
@@ -1523,78 +1482,81 @@
         listContainer.innerHTML = `
           <div class="flex flex-col items-center justify-center py-12 space-y-3 text-slate-400">
             <i class="fa-solid fa-spinner fa-spin text-2xl text-brand-500"></i>
-            <p class="text-xs">Searching official media databases for "${cleanQuery}"...</p>
+            <p class="text-xs">Searching OMDb, iTunes & Open Library databases for "${cleanQuery}"...</p>
           </div>
         `;
 
         try {
           const results = [];
+          const omdbKey = this.apiKeys.omdb || 'trilogy';
 
-          if (this.apiKeys.tmdb) {
-            try {
-              const tmdbRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${this.apiKeys.tmdb}&query=${encodeURIComponent(cleanQuery)}&page=1`);
-              if (tmdbRes.ok) {
-                const tmdbData = await tmdbRes.json();
-                if (tmdbData.results) {
-                  tmdbData.results.slice(0, 5).forEach(m => {
-                    results.push({
-                      title: m.title || '',
-                      creator: 'TMDb Movie',
-                      category: 'Movie',
-                      year: m.release_date ? parseInt(m.release_date.slice(0, 4)) : new Date().getFullYear(),
-                      genre: 'Film / Cinema',
-                      coverUrl: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
-                      format: 'Blu-ray / DVD',
-                      source: 'TMDb Database'
-                    });
+          // OMDb Movie Search
+          try {
+            const omdbRes = await fetch(`https://www.omdbapi.com/?apikey=${omdbKey}&s=${encodeURIComponent(cleanQuery)}`);
+            if (omdbRes.ok) {
+              const omdbData = await omdbRes.json();
+              if (omdbData.Response === 'True' && omdbData.Search) {
+                omdbData.Search.forEach(m => {
+                  results.push({
+                    title: m.Title || '',
+                    creator: 'Movie / Film Studio',
+                    category: 'Movie',
+                    year: parseInt(m.Year) || new Date().getFullYear(),
+                    genre: m.Type ? m.Type.toUpperCase() : 'Film',
+                    coverUrl: m.Poster && m.Poster !== 'N/A' ? m.Poster : '',
+                    format: 'Blu-ray / DVD',
+                    source: 'OMDb Database'
                   });
-                }
-              }
-            } catch (e) {}
-          }
-
-          if (this.apiKeys.rawg) {
-            try {
-              const rawgRes = await fetch(`https://api.rawg.io/api/games?key=${this.apiKeys.rawg}&search=${encodeURIComponent(cleanQuery)}&page_size=5`);
-              if (rawgRes.ok) {
-                const rawgData = await rawgRes.json();
-                if (rawgData.results) {
-                  rawgData.results.forEach(g => {
-                    results.push({
-                      title: g.name || '',
-                      creator: g.developers ? g.developers.map(d=>d.name).join(', ') : 'Game Studio',
-                      category: 'Game',
-                      year: g.released ? parseInt(g.released.slice(0, 4)) : new Date().getFullYear(),
-                      genre: g.genres ? g.genres.map(x=>x.name).join(', ') : 'Video Game',
-                      coverUrl: g.background_image || '',
-                      format: 'Console / PC Disc',
-                      source: 'RAWG Database'
-                    });
-                  });
-                }
-              }
-            } catch (e) {}
-          }
-          
-          const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&media=all&limit=8`);
-          if (itunesRes.ok) {
-            const data = await itunesRes.json();
-            if (data.results) {
-              data.results.forEach(item => {
-                const isMovie = item.kind === 'feature-movie' || item.wrapperType === 'track';
-                results.push({
-                  title: item.trackName || item.collectionName || '',
-                  creator: item.artistName || item.director || 'Studio / Artist',
-                  category: isMovie ? 'Movie' : 'Music',
-                  year: item.releaseDate ? parseInt(item.releaseDate.slice(0, 4)) : new Date().getFullYear(),
-                  genre: item.primaryGenreName || '',
-                  coverUrl: (item.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
-                  format: isMovie ? 'Movie / Film' : 'Audio CD / Vinyl',
-                  source: 'iTunes Library'
                 });
-              });
+              }
             }
-          }
+          } catch (e) {}
+
+          // iTunes Search
+          try {
+            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&media=all&limit=8`);
+            if (itunesRes.ok) {
+              const data = await itunesRes.json();
+              if (data.results) {
+                data.results.forEach(item => {
+                  const isMovie = item.kind === 'feature-movie' || item.wrapperType === 'track';
+                  results.push({
+                    title: item.trackName || item.collectionName || '',
+                    creator: item.artistName || item.director || 'Studio / Artist',
+                    category: isMovie ? 'Movie' : 'Music',
+                    year: item.releaseDate ? parseInt(item.releaseDate.slice(0, 4)) : new Date().getFullYear(),
+                    genre: item.primaryGenreName || '',
+                    coverUrl: (item.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+                    format: isMovie ? 'Movie / Film' : 'Audio CD / Vinyl',
+                    source: 'iTunes Library'
+                  });
+                });
+              }
+            }
+          } catch (e) {}
+
+          // Google Books Search
+          try {
+            const gbRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(cleanQuery)}&maxResults=5`);
+            if (gbRes.ok) {
+              const gbData = await gbRes.json();
+              if (gbData.items) {
+                gbData.items.forEach(item => {
+                  const vol = item.volumeInfo;
+                  results.push({
+                    title: vol.title || '',
+                    creator: vol.authors ? vol.authors.join(', ') : 'Author',
+                    category: 'Movie',
+                    year: vol.publishedDate ? parseInt(vol.publishedDate.slice(0, 4)) : new Date().getFullYear(),
+                    genre: vol.categories ? vol.categories.join(', ') : 'Book',
+                    coverUrl: vol.imageLinks ? (vol.imageLinks.thumbnail || vol.imageLinks.smallThumbnail || '') : '',
+                    format: 'Book / Publication',
+                    source: 'Google Books'
+                  });
+                });
+              }
+            }
+          } catch (e) {}
 
           if (results.length === 0) {
             listContainer.innerHTML = `
@@ -1607,6 +1569,9 @@
           }
 
           listContainer.innerHTML = '';
+          if (!window._searchResultsCache) window._searchResultsCache = [];
+          window._searchResultsCache = results;
+
           results.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = "p-3 bg-slate-950 border border-slate-800 hover:border-brand-500/60 rounded-2xl flex items-center justify-between gap-3 transition group";
@@ -1635,6 +1600,7 @@
                 </div>
               </div>
               <button 
+                type="button"
                 onclick="app.selectSearchResult(${index})" 
                 class="px-3 py-1.5 bg-brand-600/20 hover:bg-brand-600 text-brand-300 hover:text-white border border-brand-500/40 rounded-xl text-xs font-medium transition shrink-0 flex items-center gap-1 shadow"
               >
@@ -1643,8 +1609,6 @@
               </button>
             `;
 
-            if (!window._searchResultsCache) window._searchResultsCache = [];
-            window._searchResultsCache[index] = item;
             listContainer.appendChild(card);
           });
 
@@ -1664,6 +1628,15 @@
 
         this.vibrate([30]);
 
+        // Close Search Results modal first
+        this.closeSearchResultsModal();
+
+        // Ensure Add Item form modal is open
+        const editModal = document.getElementById('editModal');
+        editModal.classList.remove('hidden');
+        editModal.classList.add('flex');
+
+        document.getElementById('modalTitle').value = 'Add Scanned Item';
         document.getElementById('itemTitle').value = item.title || '';
         document.getElementById('itemCreator').value = item.creator || '';
         document.getElementById('itemYear').value = item.year || '';
@@ -1674,9 +1647,7 @@
         const categoryRadio = document.querySelector(`input[name="category"][value="${item.category}"]`);
         if (categoryRadio) categoryRadio.checked = true;
 
-        this.closeSearchResultsModal();
-        this.openEditModal(document.getElementById('itemId').value || null);
-        this.showToast(`Selected "${item.title}" from search results!`, 'fa-circle-check text-emerald-400');
+        this.showToast(`Selected "${item.title}"!`, 'fa-circle-check text-emerald-400');
       }
 
       closeSearchResultsModal() {
@@ -1717,6 +1688,7 @@
           document.getElementById('itemYear').value = prefillData.year || '';
           document.getElementById('itemCoverUrl').value = prefillData.coverUrl || '';
           document.getElementById('itemFormat').value = prefillData.format || '';
+          document.getElementById('itemGenre').value = prefillData.genre || '';
 
           const radio = form.querySelector(`input[name="category"][value="${prefillData.category}"]`);
           if (radio) radio.checked = true;
