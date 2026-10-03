@@ -129,7 +129,7 @@
           <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
             MediaVault
           </h1>
-          <p class="text-[10px] text-slate-400 hidden sm:block">Catalog & Online Metadata Scanner</p>
+          <p class="text-[10px] text-slate-400 hidden sm:block">Catalog & Enhanced Metadata Engine</p>
         </div>
       </div>
 
@@ -147,18 +147,22 @@
           <span class="hidden sm:inline">Add Item</span>
         </button>
 
-        <!-- Cloud Sync / Backup Dropdown Menu -->
+        <!-- API Keys & Sync Settings Dropdown -->
         <div class="relative group">
-          <button class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition" title="Data Backup / Sync Options">
-            <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+          <button class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition" title="Settings & Metadata Keys">
+            <i class="fa-solid fa-sliders text-lg"></i>
           </button>
-          <div class="absolute right-0 mt-2 w-60 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 hidden group-hover:block group-focus-within:block z-50">
+          <div class="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 hidden group-hover:block group-focus-within:block z-50">
             <div class="px-4 py-2 border-b border-slate-800">
-              <p class="text-xs font-semibold text-slate-300">Database & Cloud Sync</p>
-              <p class="text-[10px] text-slate-500">Google Drive & JSON Export</p>
+              <p class="text-xs font-semibold text-slate-300">Database & Metadata</p>
+              <p class="text-[10px] text-slate-500">API Provider Configuration</p>
             </div>
+            <button onclick="app.openApiKeysModal()" class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-key text-amber-400"></i>
+              <span>Metadata API Keys (Optional)</span>
+            </button>
             <button onclick="app.openDriveSyncModal()" class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
-              <i class="fa-brands fa-google-drive text-amber-400"></i>
+              <i class="fa-brands fa-google-drive text-emerald-400"></i>
               <span>Google Drive Sync</span>
             </button>
             <button onclick="app.exportDatabase()" class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
@@ -166,7 +170,7 @@
               <span>Export Collection JSON</span>
             </button>
             <label class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2 cursor-pointer">
-              <i class="fa-solid fa-upload text-emerald-500"></i>
+              <i class="fa-solid fa-upload text-cyan-400"></i>
               <span>Import Collection JSON</span>
               <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="app.importDatabase(event)" />
             </label>
@@ -535,6 +539,50 @@
     </div>
   </div>
 
+  <!-- API Keys Configuration Modal -->
+  <div id="apiKeysModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative space-y-4 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-key text-amber-400 text-xl"></i>
+          <h3 class="text-base font-bold text-white">Metadata Provider Keys</h3>
+        </div>
+        <button onclick="document.getElementById('apiKeysModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        MediaVault queries <a href="https://www.barcodelookup.com/" target="_blank" class="text-brand-400 underline">BarcodeLookup.com</a>, OpenLibrary, iTunes, and MusicBrainz for instant metadata. Enter an optional <strong>Barcode Lookup API Token</strong> for direct barcode matching:
+      </p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Barcode Lookup API Key (Optional)</label>
+          <input type="text" id="barcodeLookupKeyInput" placeholder="Paste Barcode Lookup API Key..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
+          <p class="text-[10px] text-slate-500 mt-1">Get key at <a href="https://www.barcodelookup.com/api" target="_blank" class="text-brand-400 underline">barcodelookup.com/api</a></p>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">TMDb API Key (Movies & TV)</label>
+          <input type="text" id="tmdbKeyInput" placeholder="Paste TMDb v3 API Key..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">RAWG API Key (Video Games)</label>
+          <input type="text" id="rawgKeyInput" placeholder="Paste RAWG API Key..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button onclick="app.saveApiKeys()" class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow-lg shadow-brand-600/30">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save API Settings</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Google Drive Sync Modal -->
   <div id="driveSyncModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative space-y-4">
@@ -552,22 +600,49 @@
         MediaVault can sync your entire collection directly to a <code class="bg-slate-950 px-1 py-0.5 rounded text-amber-400">mediavault_backup.json</code> file inside your personal Google Drive account.
       </p>
 
-      <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-        <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Google OAuth Client ID (Optional):</label>
-        <input 
-          type="text" 
-          id="googleClientIdInput" 
-          placeholder="Paste Google Cloud Client ID here..." 
-          class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono"
-        />
-        <p class="text-[10px] text-slate-500">If left blank, you can use built-in JSON Backup & Sync to Google Drive / OneDrive apps on your phone.</p>
-      </div>
-
       <div class="flex flex-col gap-2 pt-2">
         <button onclick="app.syncToGoogleDrive()" class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow-lg shadow-brand-600/30">
           <i class="fa-brands fa-google-drive"></i>
           <span>Save Backup to Google Drive</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Results Selection Modal -->
+  <div id="searchResultsModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-3xl p-5 shadow-2xl relative max-h-[85vh] flex flex-col space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-list-check text-brand-400 text-xl"></i>
+          <div>
+            <h3 class="text-base font-bold text-white">Select Correct Match</h3>
+            <p class="text-[11px] text-slate-400">Review search candidates and choose the exact title & artwork</p>
+          </div>
+        </div>
+        <button onclick="app.closeSearchResultsModal()" class="text-slate-400 hover:text-slate-200 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Search Query Refinement Bar -->
+      <div class="flex gap-2">
+        <input 
+          type="text" 
+          id="modalSearchQuery" 
+          placeholder="Refine search title, band, or movie keyword..." 
+          class="flex-grow bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500"
+          onkeydown="if(event.key === 'Enter'){ app.executeMultiSearch(this.value); }"
+        />
+        <button onclick="app.executeMultiSearch(document.getElementById('modalSearchQuery').value)" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl font-medium transition flex items-center gap-1.5 shrink-0 shadow-md shadow-brand-600/20">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Search</span>
+        </button>
+      </div>
+
+      <!-- Results Container List -->
+      <div id="searchResultsList" class="flex-grow overflow-y-auto space-y-2.5 pr-1 no-scrollbar min-h-[220px] max-h-[55vh]">
+        <!-- Dynamic candidate list items rendered here -->
       </div>
     </div>
   </div>
@@ -628,6 +703,14 @@
             createdAt: Date.now() - 500000
           }
         ];
+
+        this.apiKeys = JSON.parse(localStorage.getItem('mediavault_apikeys')) || {
+          barcodeLookup: '',
+          tmdb: '',
+          rawg: '',
+          discogs: ''
+        };
+
         this.activeFilter = 'all';
         this.videoStream = null;
         this.videoTrack = null;
@@ -642,6 +725,7 @@
           this.updateStats();
           this.registerServiceWorker();
           this.initPWAInstaller();
+          this.loadApiKeysIntoUI();
         });
       }
 
@@ -668,7 +752,7 @@
       registerServiceWorker() {
         if ('serviceWorker' in navigator) {
           const swCode = `
-            const CACHE_NAME = 'mediavault-v2';
+            const CACHE_NAME = 'mediavault-v4';
             self.addEventListener('install', (e) => { self.skipWaiting(); });
             self.addEventListener('activate', (e) => { self.clients.claim(); });
             self.addEventListener('fetch', (e) => {
@@ -700,6 +784,27 @@
           this.deferredPwaPrompt = null;
           document.getElementById('pwaInstallBanner').classList.add('hidden');
         }
+      }
+
+      openApiKeysModal() {
+        this.loadApiKeysIntoUI();
+        document.getElementById('apiKeysModal').classList.remove('hidden');
+      }
+
+      loadApiKeysIntoUI() {
+        document.getElementById('barcodeLookupKeyInput').value = this.apiKeys.barcodeLookup || '';
+        document.getElementById('tmdbKeyInput').value = this.apiKeys.tmdb || '';
+        document.getElementById('rawgKeyInput').value = this.apiKeys.rawg || '';
+      }
+
+      saveApiKeys() {
+        this.apiKeys.barcodeLookup = document.getElementById('barcodeLookupKeyInput').value.trim();
+        this.apiKeys.tmdb = document.getElementById('tmdbKeyInput').value.trim();
+        this.apiKeys.rawg = document.getElementById('rawgKeyInput').value.trim();
+
+        localStorage.setItem('mediavault_apikeys', JSON.stringify(this.apiKeys));
+        document.getElementById('apiKeysModal').classList.add('hidden');
+        this.showToast('Metadata API keys saved!', 'fa-circle-check text-emerald-400');
       }
 
       async shareItem(id) {
@@ -1007,8 +1112,6 @@
         }
 
         if (torchBtn) torchBtn.disabled = false;
-        this.hasHardwareZoom = 'zoom' in capabilities;
-        this.hasHardwareTorch = 'torch' in capabilities;
       }
 
       async refocusCamera() {
@@ -1173,7 +1276,7 @@
       async handleScannedUPC(upcCode) {
         this.vibrate([100, 50, 100]);
         this.closeScanner();
-        this.showToast(`Fetching online metadata for UPC: ${upcCode}...`, 'fa-wand-magic-sparkles text-brand-400');
+        this.showToast(`Looking up Barcode #${upcCode} via BarcodeLookup.com & media engines...`, 'fa-wand-magic-sparkles text-brand-400');
 
         const metadata = await this.lookupUPCMetadata(upcCode);
         this.openEditModal(null, metadata);
@@ -1191,10 +1294,27 @@
         document.getElementById('scannerModal').classList.remove('flex');
       }
 
-      // ONLINE METADATA ENGINE (iTunes API, MusicBrainz, Open Food Facts)
+      sanitizeTitle(raw) {
+        if (!raw) return '';
+        return raw
+          .replace(/\[.*?\]/g, '')
+          .replace(/\((.*?edition|.*?disc|.*?version|.*?pack|.*?import|.*?hd|.*?set)\)/gi, '')
+          .replace(/blu-ray|4k ultra hd|4k|dvd|ps4|ps5|xbox one|xbox series x|nintendo switch|steelbook/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      // INTEGRATED BARCODELOOKUP.COM & MULTI-TIER ENGINE
       async lookupUPCMetadata(barcode) {
+        const cleanBarcode = barcode.trim();
+        const variations = Array.from(new Set([
+          cleanBarcode,
+          cleanBarcode.length === 12 ? '0' + cleanBarcode : cleanBarcode,
+          cleanBarcode.replace(/^0+/, '')
+        ])).filter(Boolean);
+
         let metadata = {
-          barcode: barcode,
+          barcode: cleanBarcode,
           title: '',
           creator: '',
           category: 'Movie',
@@ -1204,60 +1324,175 @@
           format: 'Physical'
         };
 
-        try {
-          // 1. MusicBrainz API lookup (Free CD/Vinyl Barcode Lookup)
-          const mbReq = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${barcode}&fmt=json`);
-          if (mbReq.ok) {
-            const mbData = await mbReq.json();
-            if (mbData.releases && mbData.releases.length > 0) {
-              const rel = mbData.releases[0];
-              metadata.title = rel.title || '';
-              metadata.creator = rel['artist-credit']?.[0]?.name || '';
-              metadata.category = 'Music';
-              metadata.year = rel.date ? parseInt(rel.date.slice(0, 4)) : new Date().getFullYear();
-              metadata.format = 'Audio CD / Vinyl';
-              if (rel.id) {
-                metadata.coverUrl = `https://coverartarchive.org/release/${rel.id}/front-500`;
+        // STEP 1: BarcodeLookup.com API Integration (if user provided token)
+        if (this.apiKeys.barcodeLookup) {
+          for (const code of variations) {
+            if (metadata.title) break;
+            try {
+              const blRes = await fetch(`https://api.barcodelookup.com/v3/products?barcode=${code}&formatted=y&key=${this.apiKeys.barcodeLookup}`);
+              if (blRes.ok) {
+                const blData = await blRes.json();
+                if (blData.products && blData.products.length > 0) {
+                  const prod = blData.products[0];
+                  metadata.title = prod.title || '';
+                  metadata.creator = prod.brand || prod.manufacturer || '';
+                  metadata.genre = prod.category || '';
+                  if (prod.images && prod.images.length > 0) {
+                    metadata.coverUrl = prod.images[0];
+                  }
+                  const catStr = (prod.category || '').toLowerCase() + ' ' + (prod.title || '').toLowerCase();
+                  if (catStr.includes('game') || catStr.includes('nintendo') || catStr.includes('playstation') || catStr.includes('xbox')) {
+                    metadata.category = 'Game';
+                    metadata.format = 'Disc / Cartridge';
+                  } else if (catStr.includes('music') || catStr.includes('audio') || catStr.includes('vinyl') || catStr.includes('cd')) {
+                    metadata.category = 'Music';
+                    metadata.format = 'Audio CD / Vinyl';
+                  } else {
+                    metadata.category = 'Movie';
+                    metadata.format = 'Blu-ray / DVD';
+                  }
+                }
               }
-            }
+            } catch (e) {}
+          }
+        }
+
+        // STEP 2: MusicBrainz API (Audio CDs & Vinyl)
+        if (!metadata.title) {
+          for (const code of variations) {
+            if (metadata.title) break;
+            try {
+              const mbRes = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${code}&fmt=json`);
+              if (mbRes.ok) {
+                const mbData = await mbRes.json();
+                if (mbData.releases && mbData.releases.length > 0) {
+                  const rel = mbData.releases[0];
+                  metadata.title = rel.title || '';
+                  metadata.creator = rel['artist-credit']?.[0]?.name || '';
+                  metadata.category = 'Music';
+                  metadata.year = rel.date ? parseInt(rel.date.slice(0, 4)) : new Date().getFullYear();
+                  metadata.format = 'Audio CD / Vinyl';
+                  if (rel.id) {
+                    metadata.coverUrl = `https://coverartarchive.org/release/${rel.id}/front-500`;
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        // STEP 3: Open Library API (Books & Media Prints)
+        if (!metadata.title) {
+          for (const code of variations) {
+            if (metadata.title) break;
+            try {
+              const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${code}&format=json&jscmd=data`);
+              if (olRes.ok) {
+                const olData = await olRes.json();
+                const bookKey = `ISBN:${code}`;
+                if (olData[bookKey]) {
+                  const book = olData[bookKey];
+                  metadata.title = book.title || '';
+                  metadata.creator = book.authors ? book.authors.map(a => a.name).join(', ') : '';
+                  metadata.year = book.publish_date ? parseInt(book.publish_date.slice(-4)) || new Date().getFullYear() : new Date().getFullYear();
+                  metadata.category = 'Movie';
+                  metadata.format = 'Book / Publication';
+                  if (book.cover) {
+                    metadata.coverUrl = book.cover.large || book.cover.medium || book.cover.small || '';
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        // STEP 4: UPCItemDB (General UPC Lookup)
+        let rawUpcTitle = '';
+        if (!metadata.title) {
+          for (const code of variations) {
+            if (rawUpcTitle) break;
+            try {
+              const res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.items && data.items.length > 0) {
+                  const item = data.items[0];
+                  rawUpcTitle = item.title || item.title_en || '';
+                  metadata.creator = item.brand || item.publisher || item.manufacturer || '';
+                  if (item.images && item.images.length > 0) {
+                    metadata.coverUrl = item.images[0];
+                  }
+                  const catLower = (item.category || '').toLowerCase() + ' ' + rawUpcTitle.toLowerCase();
+                  if (catLower.includes('game') || catLower.includes('nintendo') || catLower.includes('playstation') || catLower.includes('xbox') || catLower.includes('switch')) {
+                    metadata.category = 'Game';
+                    metadata.format = 'Disc / Cartridge';
+                  } else if (catLower.includes('dvd') || catLower.includes('blu-ray') || catLower.includes('movie') || catLower.includes('film') || catLower.includes('4k')) {
+                    metadata.category = 'Movie';
+                    metadata.format = catLower.includes('blu-ray') ? 'Blu-ray' : (catLower.includes('4k') ? '4K Ultra HD' : 'DVD');
+                  } else if (catLower.includes('music') || catLower.includes('cd') || catLower.includes('vinyl')) {
+                    metadata.category = 'Music';
+                    metadata.format = catLower.includes('vinyl') ? 'Vinyl' : 'Audio CD';
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        // STEP 5: High-Precision Search Refinement (iTunes & TMDb / RAWG)
+        const targetSearchTitle = this.sanitizeTitle(metadata.title || rawUpcTitle);
+
+        if (targetSearchTitle && targetSearchTitle.length > 2) {
+          if (metadata.category === 'Movie' && this.apiKeys.tmdb) {
+            try {
+              const tmdbRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${this.apiKeys.tmdb}&query=${encodeURIComponent(targetSearchTitle)}`);
+              if (tmdbRes.ok) {
+                const tmdbData = await tmdbRes.json();
+                if (tmdbData.results && tmdbData.results.length > 0) {
+                  const mov = tmdbData.results[0];
+                  metadata.title = mov.title || targetSearchTitle;
+                  metadata.year = mov.release_date ? parseInt(mov.release_date.slice(0, 4)) : metadata.year;
+                  if (mov.poster_path) metadata.coverUrl = `https://image.tmdb.org/t/p/w500${mov.poster_path}`;
+                }
+              }
+            } catch (e) {}
           }
 
-          // 2. iTunes Search API lookup (No API key needed, high-res posters & details)
-          if (!metadata.title) {
-            const itunesReq = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(barcode)}&media=all&limit=1`);
-            if (itunesReq.ok) {
-              const itunesData = await itunesReq.json();
-              if (itunesData.results && itunesData.results.length > 0) {
-                const res = itunesData.results[0];
-                metadata.title = res.trackName || res.collectionName || '';
-                metadata.creator = res.artistName || res.director || '';
-                metadata.genre = res.primaryGenreName || '';
-                metadata.year = res.releaseDate ? parseInt(res.releaseDate.slice(0, 4)) : new Date().getFullYear();
-                metadata.coverUrl = (res.artworkUrl100 || '').replace('100x100bb', '600x600bb');
-                metadata.category = res.kind === 'feature-movie' ? 'Movie' : 'Music';
+          if (metadata.category === 'Game' && this.apiKeys.rawg) {
+            try {
+              const rawgRes = await fetch(`https://api.rawg.io/api/games?key=${this.apiKeys.rawg}&search=${encodeURIComponent(targetSearchTitle)}&page_size=1`);
+              if (rawgRes.ok) {
+                const rawgData = await rawgRes.json();
+                if (rawgData.results && rawgData.results.length > 0) {
+                  const game = rawgData.results[0];
+                  metadata.title = game.name || targetSearchTitle;
+                  metadata.year = game.released ? parseInt(game.released.slice(0, 4)) : metadata.year;
+                  if (game.background_image) metadata.coverUrl = game.background_image;
+                }
               }
-            }
+            } catch (e) {}
           }
 
-          // 3. Fallback: Open Food Facts / Product API
-          if (!metadata.title) {
-            const offReq = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-            if (offReq.ok) {
-              const offData = await offReq.json();
-              if (offData.status === 1 && offData.product) {
-                metadata.title = offData.product.product_name || '';
-                metadata.creator = offData.product.brands || '';
-                metadata.coverUrl = offData.product.image_front_url || '';
+          if (!metadata.coverUrl || metadata.coverUrl.includes('placehold.co') || rawUpcTitle) {
+            try {
+              const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(targetSearchTitle)}&media=all&limit=1`);
+              if (itunesRes.ok) {
+                const itunesData = await itunesRes.json();
+                if (itunesData.results && itunesData.results.length > 0) {
+                  const res = itunesData.results[0];
+                  if (!metadata.title) metadata.title = res.trackName || res.collectionName || targetSearchTitle;
+                  if (!metadata.creator) metadata.creator = res.artistName || res.director || '';
+                  if (!metadata.genre) metadata.genre = res.primaryGenreName || '';
+                  if (res.releaseDate) metadata.year = parseInt(res.releaseDate.slice(0, 4));
+                  metadata.coverUrl = (res.artworkUrl100 || '').replace('100x100bb', '600x600bb');
+                }
               }
-            }
+            } catch (e) {}
           }
+        }
 
-          if (!metadata.title) {
-            metadata.title = `Scanned Item (${barcode})`;
-          }
-        } catch (err) {
-          console.warn("Online API lookup note:", err);
-          metadata.title = `Scanned Item (${barcode})`;
+        if (!metadata.title) {
+          metadata.title = targetSearchTitle || `Scanned Item (${cleanBarcode})`;
         }
 
         return metadata;
@@ -1270,27 +1505,184 @@
           return;
         }
 
-        this.showToast(`Searching online details for "${title}"...`, 'fa-wand-magic-sparkles text-brand-400');
+        this.executeMultiSearch(title);
+      }
+
+      async executeMultiSearch(query) {
+        const cleanQuery = query ? query.trim() : '';
+        if (!cleanQuery) return;
+
+        const resultsModal = document.getElementById('searchResultsModal');
+        const searchInput = document.getElementById('modalSearchQuery');
+        const listContainer = document.getElementById('searchResultsList');
+
+        searchInput.value = cleanQuery;
+        resultsModal.classList.remove('hidden');
+        resultsModal.classList.add('flex');
+
+        listContainer.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-12 space-y-3 text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-2xl text-brand-500"></i>
+            <p class="text-xs">Searching official media databases for "${cleanQuery}"...</p>
+          </div>
+        `;
 
         try {
-          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=all&limit=1`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.results && data.results.length > 0) {
-              const item = data.results[0];
-              document.getElementById('itemTitle').value = item.trackName || item.collectionName || title;
-              document.getElementById('itemCreator').value = item.artistName || item.director || '';
-              document.getElementById('itemYear').value = item.releaseDate ? parseInt(item.releaseDate.slice(0, 4)) : '';
-              document.getElementById('itemGenre').value = item.primaryGenreName || '';
-              document.getElementById('itemCoverUrl').value = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
-              this.showToast('Updated details from online database!', 'fa-circle-check text-emerald-400');
-            } else {
-              this.showToast('No online metadata match found.', 'fa-circle-exclamation text-amber-400');
+          const results = [];
+
+          if (this.apiKeys.tmdb) {
+            try {
+              const tmdbRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${this.apiKeys.tmdb}&query=${encodeURIComponent(cleanQuery)}&page=1`);
+              if (tmdbRes.ok) {
+                const tmdbData = await tmdbRes.json();
+                if (tmdbData.results) {
+                  tmdbData.results.slice(0, 5).forEach(m => {
+                    results.push({
+                      title: m.title || '',
+                      creator: 'TMDb Movie',
+                      category: 'Movie',
+                      year: m.release_date ? parseInt(m.release_date.slice(0, 4)) : new Date().getFullYear(),
+                      genre: 'Film / Cinema',
+                      coverUrl: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
+                      format: 'Blu-ray / DVD',
+                      source: 'TMDb Database'
+                    });
+                  });
+                }
+              }
+            } catch (e) {}
+          }
+
+          if (this.apiKeys.rawg) {
+            try {
+              const rawgRes = await fetch(`https://api.rawg.io/api/games?key=${this.apiKeys.rawg}&search=${encodeURIComponent(cleanQuery)}&page_size=5`);
+              if (rawgRes.ok) {
+                const rawgData = await rawgRes.json();
+                if (rawgData.results) {
+                  rawgData.results.forEach(g => {
+                    results.push({
+                      title: g.name || '',
+                      creator: g.developers ? g.developers.map(d=>d.name).join(', ') : 'Game Studio',
+                      category: 'Game',
+                      year: g.released ? parseInt(g.released.slice(0, 4)) : new Date().getFullYear(),
+                      genre: g.genres ? g.genres.map(x=>x.name).join(', ') : 'Video Game',
+                      coverUrl: g.background_image || '',
+                      format: 'Console / PC Disc',
+                      source: 'RAWG Database'
+                    });
+                  });
+                }
+              }
+            } catch (e) {}
+          }
+          
+          const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&media=all&limit=8`);
+          if (itunesRes.ok) {
+            const data = await itunesRes.json();
+            if (data.results) {
+              data.results.forEach(item => {
+                const isMovie = item.kind === 'feature-movie' || item.wrapperType === 'track';
+                results.push({
+                  title: item.trackName || item.collectionName || '',
+                  creator: item.artistName || item.director || 'Studio / Artist',
+                  category: isMovie ? 'Movie' : 'Music',
+                  year: item.releaseDate ? parseInt(item.releaseDate.slice(0, 4)) : new Date().getFullYear(),
+                  genre: item.primaryGenreName || '',
+                  coverUrl: (item.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+                  format: isMovie ? 'Movie / Film' : 'Audio CD / Vinyl',
+                  source: 'iTunes Library'
+                });
+              });
             }
           }
+
+          if (results.length === 0) {
+            listContainer.innerHTML = `
+              <div class="flex flex-col items-center justify-center py-10 space-y-2 text-slate-500">
+                <i class="fa-solid fa-magnifying-glass text-2xl"></i>
+                <p class="text-xs">No matching titles found for "${cleanQuery}".</p>
+              </div>
+            `;
+            return;
+          }
+
+          listContainer.innerHTML = '';
+          results.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = "p-3 bg-slate-950 border border-slate-800 hover:border-brand-500/60 rounded-2xl flex items-center justify-between gap-3 transition group";
+
+            const categoryBadge = 
+              item.category === 'Movie' ? 'bg-amber-500/20 text-amber-400' :
+              item.category === 'Game' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-rose-500/20 text-rose-400';
+
+            const fallbackImg = `https://placehold.co/100x150/1e293b/6366f1?text=${encodeURIComponent(item.title.slice(0, 8))}`;
+
+            card.innerHTML = `
+              <div class="flex items-center space-x-3 overflow-hidden">
+                <img 
+                  src="${item.coverUrl || fallbackImg}" 
+                  alt="${item.title}" 
+                  onerror="this.onerror=null; this.src='${fallbackImg}'"
+                  class="w-12 h-16 object-cover rounded-xl shrink-0 bg-slate-900" 
+                />
+                <div class="truncate">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-xs font-bold text-white truncate group-hover:text-brand-400 transition-colors">${item.title}</span>
+                    <span class="px-1.5 py-0.5 text-[9px] font-semibold rounded-md ${categoryBadge} shrink-0">${item.category}</span>
+                  </div>
+                  <p class="text-xs text-slate-400 truncate mt-0.5">${item.creator} ${item.year ? `(${item.year})` : ''}</p>
+                  <p class="text-[10px] text-slate-500 truncate mt-0.5">${item.genre || item.format} • <span class="text-slate-600">${item.source}</span></p>
+                </div>
+              </div>
+              <button 
+                onclick="app.selectSearchResult(${index})" 
+                class="px-3 py-1.5 bg-brand-600/20 hover:bg-brand-600 text-brand-300 hover:text-white border border-brand-500/40 rounded-xl text-xs font-medium transition shrink-0 flex items-center gap-1 shadow"
+              >
+                <i class="fa-solid fa-check text-xs"></i>
+                <span>Select</span>
+              </button>
+            `;
+
+            if (!window._searchResultsCache) window._searchResultsCache = [];
+            window._searchResultsCache[index] = item;
+            listContainer.appendChild(card);
+          });
+
         } catch (e) {
-          this.showToast('Error searching online metadata.', 'fa-circle-xmark text-rose-400');
+          listContainer.innerHTML = `
+            <div class="p-4 text-center text-xs text-rose-400">
+              <i class="fa-solid fa-triangle-exclamation text-lg mb-1"></i>
+              <p>Failed to retrieve search results.</p>
+            </div>
+          `;
         }
+      }
+
+      selectSearchResult(index) {
+        const item = window._searchResultsCache?.[index];
+        if (!item) return;
+
+        this.vibrate([30]);
+
+        document.getElementById('itemTitle').value = item.title || '';
+        document.getElementById('itemCreator').value = item.creator || '';
+        document.getElementById('itemYear').value = item.year || '';
+        document.getElementById('itemGenre').value = item.genre || '';
+        document.getElementById('itemCoverUrl').value = item.coverUrl || '';
+        if (item.format) document.getElementById('itemFormat').value = item.format;
+
+        const categoryRadio = document.querySelector(`input[name="category"][value="${item.category}"]`);
+        if (categoryRadio) categoryRadio.checked = true;
+
+        this.closeSearchResultsModal();
+        this.openEditModal(document.getElementById('itemId').value || null);
+        this.showToast(`Selected "${item.title}" from search results!`, 'fa-circle-check text-emerald-400');
+      }
+
+      closeSearchResultsModal() {
+        const resultsModal = document.getElementById('searchResultsModal');
+        resultsModal.classList.add('hidden');
+        resultsModal.classList.remove('flex');
       }
 
       openEditModal(id = null, prefillData = null) {
