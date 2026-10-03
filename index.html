@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MediaVault - Personal Media Catalog & Scanner</title>
+  
+  <!-- Android & PWA Meta Tags -->
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="application-name" content="MediaVault" />
+  
+  <!-- Dynamic PWA Manifest Injection -->
+  <script>
+    (function() {
+      const manifest = {
+        name: "MediaVault Catalog",
+        short_name: "MediaVault",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#0f172a",
+        theme_color: "#0f172a",
+        icons: [
+          {
+            src: "https://placehold.co/192x192/6366f1/ffffff?text=MediaVault",
+            sizes: "192x192",
+            type: "image/png"
+          },
+          {
+            src: "https://placehold.co/512x512/6366f1/ffffff?text=MediaVault",
+            sizes: "512x512",
+            type: "image/png"
+          }
+        ]
+      };
+      const stringManifest = JSON.stringify(manifest);
+      const blob = new Blob([stringManifest], { type: 'application/json' });
+      const manifestUrl = URL.createObjectURL(blob);
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestUrl;
+      document.head.appendChild(link);
+    })();
+  </script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            },
+            darkbg: '#0f172a',
+            darkcard: '#1e293b',
+            darkborder: '#334155'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- ZXing Decoder fallback for broader barcode compatibility -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  
+  <style>
+    @keyframes scanLine {
+      0% { top: 5%; opacity: 0.8; }
+      50% { top: 90%; opacity: 1; }
+      100% { top: 5%; opacity: 0.8; }
+    }
+    .scanner-laser {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(99,102,241,0) 0%, rgba(239,68,68,1) 50%, rgba(99,102,241,0) 100%);
+      box-shadow: 0 0 12px #ef4444;
+      animation: scanLine 2.2s infinite ease-in-out;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-20 sm:pb-0">
+
+  <div id="pwaInstallBanner" class="hidden bg-gradient-to-r from-brand-700 to-indigo-800 text-white px-4 py-3 text-xs font-medium flex items-center justify-between border-b border-brand-600/40 shadow-lg">
+    <div class="flex items-center space-x-2">
+      <i class="fa-brands fa-android text-emerald-400 text-lg"></i>
+      <span>Install <strong>MediaVault</strong> on your Android phone for home screen access & offline use!</span>
+    </div>
+    <div class="flex items-center space-x-2 shrink-0">
+      <button onclick="app.installPWA()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs shadow transition">
+        Install
+      </button>
+      <button onclick="document.getElementById('pwaInstallBanner').classList.add('hidden')" class="p-1 text-slate-300 hover:text-white">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+    </div>
+  </div>
+
+  <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <!-- Logo -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/30">
+          <i class="fa-solid font-bold text-white text-xl fa-photo-film"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            MediaVault
+          </h1>
+          <p class="text-[10px] text-slate-400 hidden sm:block">Catalog & Barcode Scanner</p>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- Scan UPC Button -->
+        <button id="openScannerBtn" onclick="app.openScanner()" class="flex items-center space-x-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white px-3.5 py-2 rounded-xl text-sm font-medium shadow-md shadow-brand-600/20 active:scale-95 transition">
+          <i class="fa-solid fa-barcode text-base"></i>
+          <span class="hidden sm:inline">Scan UPC</span>
+        </button>
+
+        <!-- Add Manual Item -->
+        <button onclick="app.openEditModal()" class="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-sm font-medium border border-slate-700/60 active:scale-95 transition">
+          <i class="fa-solid fa-plus text-slate-400"></i>
+          <span class="hidden sm:inline">Add Item</span>
+        </button>
+
+        <!-- Cloud Sync / Backup Dropdown Menu -->
+        <div class="relative group">
+          <button class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition" title="Data Backup / Sync Options">
+            <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+          </button>
+          <div class="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 hidden group-hover:block group-focus-within:block z-50">
+            <div class="px-4 py-2 border-b border-slate-800">
+              <p class="text-xs font-semibold text-slate-300">Cloud Backup & Sync</p>
+              <p class="text-[10px] text-slate-500">Export or Import Catalog JSON</p>
+            </div>
+            <button onclick="app.exportDatabase()" class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-download text-brand-500"></i>
+              <span>Export Collection JSON</span>
+            </button>
+            <label class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2 cursor-pointer">
+              <i class="fa-solid fa-upload text-emerald-500"></i>
+              <span>Import Collection JSON</span>
+              <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="app.importDatabase(event)" />
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-3 py-2 flex justify-around items-center text-slate-400 text-xs">
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex flex-col items-center gap-1 hover:text-brand-400 focus:text-brand-400">
+      <i class="fa-solid fa-boxes-stacked text-base"></i>
+      <span class="text-[10px]">Catalog</span>
+    </button>
+    <button onclick="app.openScanner()" class="flex flex-col items-center gap-1 text-brand-400 font-bold">
+      <div class="w-10 h-10 -mt-5 bg-brand-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-brand-500/50 border-2 border-slate-900">
+        <i class="fa-solid fa-barcode text-lg"></i>
+      </div>
+      <span class="text-[10px] text-brand-400">Scan UPC</span>
+    </button>
+    <button onclick="app.openEditModal()" class="flex flex-col items-center gap-1 hover:text-brand-400 focus:text-brand-400">
+      <i class="fa-solid fa-square-plus text-base"></i>
+      <span class="text-[10px]">Add Item</span>
+    </button>
+  </nav>
+
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Collection Statistics Bar -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium">Total Items</p>
+          <p id="statTotal" class="text-2xl font-bold text-white mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/50 flex items-center justify-center text-slate-300">
+          <i class="fa-solid fa-boxes-stacked"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium">Movies</p>
+          <p id="statMovies" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+          <i class="fa-solid fa-film"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium">Games</p>
+          <p id="statGames" class="text-2xl font-bold text-indigo-400 mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+          <i class="fa-solid fa-gamepad"></i>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-medium">Music</p>
+          <p id="statMusic" class="text-2xl font-bold text-rose-400 mt-1">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <i class="fa-solid fa-compact-disc"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-slate-900/40 p-3 rounded-2xl border border-slate-800/60">
+      <!-- Search Input -->
+      <div class="relative flex-grow">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <input 
+          type="text" 
+          id="searchInput" 
+          oninput="app.renderCatalog()" 
+          placeholder="Search by title, creator, genre, barcode..." 
+          class="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+        />
+      </div>
+
+      <!-- Category Tabs -->
+      <div class="flex items-center space-x-1 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+        <button onclick="app.setCategoryFilter('all')" id="tab-all" class="category-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-brand-600 text-white">
+          All
+        </button>
+        <button onclick="app.setCategoryFilter('Movie')" id="tab-Movie" class="category-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-800 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-film mr-1"></i> Movies
+        </button>
+        <button onclick="app.setCategoryFilter('Game')" id="tab-Game" class="category-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-800 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-gamepad mr-1"></i> Games
+        </button>
+        <button onclick="app.setCategoryFilter('Music')" id="tab-Music" class="category-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-800 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-compact-disc mr-1"></i> Music
+        </button>
+      </div>
+
+      <!-- Sort Options -->
+      <div class="flex items-center space-x-2 shrink-0">
+        <select id="sortSelect" onchange="app.renderCatalog()" class="bg-slate-900 border border-slate-800 text-xs rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:border-brand-500">
+          <option value="newest">Recently Added</option>
+          <option value="title">Title (A-Z)</option>
+          <option value="year">Release Year</option>
+          <option value="rating">Rating</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Media Cards Grid -->
+    <div id="mediaGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <!-- Media Cards injected by JavaScript -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center space-y-4">
+      <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 text-2xl">
+        <i class="fa-solid fa-film"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-semibold text-slate-300">No media items found</h3>
+        <p class="text-xs text-slate-500 max-w-sm mt-1">Start cataloging by scanning a barcode or clicking "Add Item" to enter details manually.</p>
+      </div>
+      <button onclick="app.openScanner()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl font-medium transition">
+        Scan Barcode Now
+      </button>
+    </div>
+
+  </main>
+
+  <div id="scannerModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex-col items-center justify-between p-4 sm:p-6 transition-opacity duration-300">
+    <!-- Top bar -->
+    <div class="w-full max-w-lg flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-barcode text-brand-500 text-xl"></i>
+        <h2 class="text-base font-semibold text-white">UPC Barcode Scanner</h2>
+      </div>
+      <button onclick="app.closeScanner()" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Camera Source Dropdown Selector -->
+    <div class="w-full max-w-md my-2 flex items-center gap-2">
+      <i class="fa-solid fa-camera text-slate-400 text-xs"></i>
+      <select id="cameraSelect" onchange="app.handleCameraChange()" class="w-full bg-slate-900 border border-slate-800 text-xs rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500">
+        <option value="">Default Camera Device...</option>
+      </select>
+    </div>
+
+    <!-- Quick Camera & Focus Controls Bar -->
+    <div id="cameraControlsBar" class="w-full max-w-md mb-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 flex flex-col gap-2">
+      <div class="flex items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-1.5">
+          <button id="refocusBtn" onclick="app.refocusCamera()" title="Force Refocus Camera Motor" class="px-2.5 py-1.5 bg-brand-600/30 hover:bg-brand-600/50 text-brand-300 border border-brand-500/40 rounded-xl font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-expand text-xs"></i>
+            <span>Refocus</span>
+          </button>
+          
+          <button id="torchBtn" onclick="app.toggleTorch()" title="Toggle Flashlight or Brightness Boost" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl font-medium transition flex items-center gap-1.5">
+            <i id="torchIcon" class="fa-solid fa-bolt text-xs"></i>
+            <span id="torchLabel">Light Off</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <label class="text-[11px] text-slate-400 font-medium">Focus:</label>
+          <select id="focusModeSelect" onchange="app.handleFocusModeChange(this.value)" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl px-2 py-1 focus:outline-none focus:border-brand-500">
+            <option value="continuous">Auto Focus</option>
+            <option value="contrast">High Contrast Mode</option>
+            <option value="single-shot">Single-Shot Trigger</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Zoom & Clarity Sliders -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-800/60">
+        <div id="zoomControlContainer" class="flex items-center gap-2">
+          <span class="text-slate-400 font-mono text-[10px] whitespace-nowrap"><i class="fa-solid fa-magnifying-glass-plus mr-1"></i>Zoom:</span>
+          <input type="range" id="zoomRange" min="1" max="4" step="0.1" value="1" oninput="app.handleZoomChange(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500" />
+          <span id="zoomVal" class="text-slate-400 font-mono text-[10px] w-12 text-right">1.0x</span>
+        </div>
+
+        <div id="contrastControlContainer" class="flex items-center gap-2">
+          <span class="text-slate-400 font-mono text-[10px] whitespace-nowrap"><i class="fa-solid fa-sliders mr-1"></i>Clarity:</span>
+          <input type="range" id="focusDistanceRange" min="100" max="250" step="10" value="100" oninput="app.handleClarityChange(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500" />
+          <span id="focusDistVal" class="text-slate-400 font-mono text-[10px] w-8 text-right">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Camera Viewport & Overlay -->
+    <div id="videoContainer" onclick="app.handleViewportTap(event)" class="relative w-full max-w-md aspect-[3/4] sm:aspect-square my-auto rounded-3xl overflow-hidden bg-slate-950 border-2 border-slate-800 shadow-2xl flex items-center justify-center cursor-pointer group">
+      <video id="cameraVideo" class="w-full h-full object-cover" playsinline autoplay muted></video>
+
+      <!-- Tap to focus animation ring -->
+      <div id="tapFocusRing" class="absolute w-12 h-12 border-2 border-amber-400 rounded-full opacity-0 pointer-events-none transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2 scale-150 z-20"></div>
+
+      <!-- Viewfinder Overlay Box -->
+      <div id="viewfinderOverlay" class="absolute inset-0 border-[40px] border-black/50 pointer-events-none flex items-center justify-center">
+        <div class="relative w-64 h-40 border-2 border-brand-500/80 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.3)] flex flex-col justify-between p-2">
+          <!-- Laser animation line -->
+          <div id="scannerLaser" class="scanner-laser"></div>
+          
+          <!-- Corner reticles -->
+          <div class="flex justify-between">
+            <div class="w-4 h-4 border-t-2 border-l-2 border-brand-400"></div>
+            <div class="w-4 h-4 border-t-2 border-r-2 border-brand-400"></div>
+          </div>
+          <div class="flex justify-between">
+            <div class="w-4 h-4 border-b-2 border-l-2 border-brand-400"></div>
+            <div class="w-4 h-4 border-b-2 border-r-2 border-brand-400"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error / Fallback Viewport -->
+      <div id="cameraErrorFallback" class="absolute inset-0 bg-slate-950/95 p-6 hidden flex-col items-center justify-center text-center space-y-3 z-30">
+        <div class="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-video-slash"></i>
+        </div>
+        <div>
+          <h4 id="errorTitle" class="text-sm font-semibold text-white">Camera Unavailable</h4>
+          <p id="errorDescription" class="text-xs text-slate-400 max-w-xs mt-1">Could not start video source.</p>
+        </div>
+        <div class="pt-2 flex flex-wrap justify-center gap-2">
+          <button onclick="app.openScanner()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl transition text-xs font-medium flex items-center gap-1.5 shadow-md shadow-brand-600/30">
+            <i class="fa-solid fa-rotate-right"></i>
+            <span>Retry Camera</span>
+          </button>
+          <label class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition cursor-pointer text-xs font-medium flex items-center gap-1.5">
+            <i class="fa-solid fa-image text-brand-400"></i>
+            <span>Upload Photo</span>
+            <input type="file" accept="image/*" capture="environment" class="hidden" onchange="app.scanBarcodeFromFile(event)" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Scanning Status Message -->
+      <div id="scannerStatus" class="absolute bottom-3 bg-slate-900/95 backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-700/60 text-xs text-slate-300 font-medium text-center max-w-[92%] shadow-2xl z-20">
+        Position UPC barcode inside frame
+      </div>
+    </div>
+
+    <!-- Manual Barcode Input & Photo Upload Fallback -->
+    <div class="w-full max-w-lg bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex flex-col gap-3">
+      <div class="flex items-center justify-between text-xs text-slate-400">
+        <span>Alternatives to camera scanning:</span>
+        <label class="cursor-pointer text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+          <i class="fa-solid fa-image"></i>
+          <span>Scan Photo</span>
+          <input type="file" id="barcodeFileInput" accept="image/*" capture="environment" class="hidden" onchange="app.scanBarcodeFromFile(event)" />
+        </label>
+      </div>
+      
+      <div class="flex gap-2">
+        <input 
+          type="text" 
+          id="manualUpcInput" 
+          placeholder="Enter UPC (e.g. 024543210982)" 
+          class="flex-grow bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500"
+        />
+        <button onclick="app.processManualBarcode()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl font-medium transition">
+          Lookup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="editModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <h3 id="modalTitle" class="text-lg font-bold text-white">Add Item to Catalog</h3>
+        <button onclick="app.closeEditModal()" class="text-slate-400 hover:text-slate-200 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="mediaForm" onsubmit="app.saveItem(event)" class="space-y-4">
+        <input type="hidden" id="itemId" />
+
+        <!-- Category -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Media Category</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex items-center justify-center p-2.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+              <input type="radio" name="category" value="Movie" class="hidden" checked />
+              <i class="fa-solid fa-film text-amber-400 mr-2"></i>
+              <span class="text-xs font-medium text-slate-200">Movie</span>
+            </label>
+            <label class="flex items-center justify-center p-2.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+              <input type="radio" name="category" value="Game" class="hidden" />
+              <i class="fa-solid fa-gamepad text-indigo-400 mr-2"></i>
+              <span class="text-xs font-medium text-slate-200">Game</span>
+            </label>
+            <label class="flex items-center justify-center p-2.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+              <input type="radio" name="category" value="Music" class="hidden" />
+              <i class="fa-solid fa-compact-disc text-rose-400 mr-2"></i>
+              <span class="text-xs font-medium text-slate-200">Music</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Title -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Title</label>
+          <input type="text" id="itemTitle" required placeholder="e.g. Inception, Elden Ring, Abbey Road" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500" />
+        </div>
+
+        <!-- Creator / Artist / Director -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Creator / Studio</label>
+            <input type="text" id="itemCreator" placeholder="Director, Band, Developer" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Release Year</label>
+            <input type="number" id="itemYear" placeholder="2024" min="1900" max="2099" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500" />
+          </div>
+        </div>
+
+        <!-- UPC / Barcode & Genre -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">UPC / Barcode</label>
+            <input type="text" id="itemBarcode" placeholder="e.g. 01234567890" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500 font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Genre</label>
+            <input type="text" id="itemGenre" placeholder="Sci-Fi, RPG, Rock..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500" />
+          </div>
+        </div>
+
+        <!-- Cover Image URL -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Cover Image URL</label>
+          <input type="url" id="itemCoverUrl" placeholder="https://..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500" />
+        </div>
+
+        <!-- Rating & Format -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Personal Rating</label>
+            <select id="itemRating" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500">
+              <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+              <option value="4">⭐⭐⭐⭐ (4/5)</option>
+              <option value="3" selected>⭐⭐⭐ (3/5)</option>
+              <option value="2">⭐⭐ (2/5)</option>
+              <option value="1">⭐ (1/5)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Physical Format</label>
+            <input type="text" id="itemFormat" placeholder="Blu-ray, Vinyl, PS5 Disc..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500" />
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-800">
+          <button type="button" onclick="app.closeEditModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-medium text-white bg-brand-600 hover:bg-brand-500 shadow-md shadow-brand-600/30 transition">
+            Save Item
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom Mobile Confirmation Modal (Replaces browser confirm) -->
+  <div id="customConfirmModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+      <div class="flex items-center space-x-3 text-amber-400">
+        <i id="confirmModalIcon" class="fa-solid fa-circle-question text-2xl"></i>
+        <h3 id="confirmModalTitle" class="text-base font-bold text-white">Confirm Action</h3>
+      </div>
+      <p id="confirmModalMessage" class="text-xs text-slate-300">Are you sure you want to proceed?</p>
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button id="confirmModalCancelBtn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition">
+          Cancel
+        </button>
+        <button id="confirmModalOkBtn" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-medium transition shadow-md shadow-brand-600/30">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 border border-slate-700 text-slate-200 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+    <i id="toastIcon" class="fa-solid fa-circle-info text-brand-500 text-lg"></i>
+    <span id="toastMessage" class="text-xs font-medium">Notification message</span>
+  </div>
+
+  <script>
+    class MediaCatalogApp {
+      constructor() {
+        this.mediaItems = JSON.parse(localStorage.getItem('mediavault_catalog')) || [
+          {
+            id: 'demo_1',
+            category: 'Movie',
+            title: 'The Dark Knight',
+            creator: 'Christopher Nolan',
+            year: 2008,
+            barcode: '024543210982',
+            genre: 'Action, Sci-Fi',
+            coverUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&auto=format&fit=crop&q=80',
+            rating: 5,
+            format: '4K Ultra HD',
+            createdAt: Date.now() - 1000000
+          },
+          {
+            id: 'demo_2',
+            category: 'Game',
+            title: 'Elden Ring',
+            creator: 'FromSoftware',
+            year: 2022,
+            barcode: '004549659042',
+            genre: 'Action RPG',
+            coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&auto=format&fit=crop&q=80',
+            rating: 5,
+            format: 'PS5 Disc',
+            createdAt: Date.now() - 500000
+          }
+        ];
+        this.activeFilter = 'all';
+        this.videoStream = null;
+        this.videoTrack = null;
+        this.isScanning = false;
+        this.zxingReader = null;
+        this.selectedDeviceId = null;
+        this.torchEnabled = false;
+        this.deferredPwaPrompt = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+          this.renderCatalog();
+          this.updateStats();
+          this.registerServiceWorker();
+          this.initPWAInstaller();
+        });
+      }
+
+      vibrate(pattern = [50]) {
+        if ('vibrate' in navigator) {
+          try {
+            navigator.vibrate(pattern);
+          } catch (e) {}
+        }
+      }
+
+      showToast(msg, iconClass = 'fa-circle-info text-brand-500') {
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+
+        toastMsg.innerText = msg;
+        toastIcon.className = `fa-solid ${iconClass} text-lg`;
+
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        setTimeout(() => {
+          toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3500);
+      }
+
+      registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+          const swCode = `
+            const CACHE_NAME = 'mediavault-v1';
+            self.addEventListener('install', (e) => { self.skipWaiting(); });
+            self.addEventListener('activate', (e) => { self.clients.claim(); });
+            self.addEventListener('fetch', (e) => {
+              e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request).catch(() => res)));
+            });
+          `;
+          const blob = new Blob([swCode], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(blob);
+          navigator.serviceWorker.register(swUrl).catch(err => {
+            console.warn('Service Worker registration skipped:', err);
+          });
+        }
+      }
+
+      initPWAInstaller() {
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          this.deferredPwaPrompt = e;
+          const banner = document.getElementById('pwaInstallBanner');
+          if (banner) banner.classList.remove('hidden');
+        });
+      }
+
+      async installPWA() {
+        if (this.deferredPwaPrompt) {
+          this.deferredPwaPrompt.prompt();
+          const { outcome } = await this.deferredPwaPrompt.userChoice;
+          if (outcome === 'accepted') {
+            this.showToast('MediaVault installed successfully!', 'fa-brands fa-android text-emerald-400');
+          }
+          this.deferredPwaPrompt = null;
+          document.getElementById('pwaInstallBanner').classList.add('hidden');
+        }
+      }
+
+      async shareItem(id) {
+        this.vibrate([30]);
+        const item = this.mediaItems.find(i => i.id === id);
+        if (!item) return;
+
+        const shareData = {
+          title: `MediaVault: ${item.title}`,
+          text: `Check out "${item.title}" by ${item.creator || 'N/A'} (${item.category} - ${item.format || 'Physical'}). UPC: ${item.barcode || 'N/A'}`,
+          url: window.location.href
+        };
+
+        if (navigator.share) {
+          try {
+            await navigator.share(shareData);
+          } catch (e) {
+            console.warn('Share cancelled or not allowed:', e);
+          }
+        } else {
+          try {
+            document.execCommand('copy');
+            this.showToast(`Item summary copied to clipboard!`, 'fa-copy text-brand-400');
+          } catch (e) {
+            this.showToast(`Sharing not supported on this browser.`, 'fa-circle-exclamation text-amber-400');
+          }
+        }
+      }
+
+      showConfirmModal(title, message, iconClass = 'fa-circle-question text-amber-400') {
+        return new Promise((resolve) => {
+          const modal = document.getElementById('customConfirmModal');
+          const titleEl = document.getElementById('confirmModalTitle');
+          const msgEl = document.getElementById('confirmModalMessage');
+          const iconEl = document.getElementById('confirmModalIcon');
+          const okBtn = document.getElementById('confirmModalOkBtn');
+          const cancelBtn = document.getElementById('confirmModalCancelBtn');
+
+          titleEl.innerText = title;
+          msgEl.innerText = message;
+          iconEl.className = `fa-solid ${iconClass} text-2xl`;
+
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+
+          const cleanup = () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+          };
+
+          const onOk = () => { cleanup(); resolve(true); };
+          const onCancel = () => { cleanup(); resolve(false); };
+
+          okBtn.addEventListener('click', onOk);
+          cancelBtn.addEventListener('click', onCancel);
+        });
+      }
+
+      setCategoryFilter(category) {
+        this.activeFilter = category;
+        document.querySelectorAll('.category-tab').forEach(tab => {
+          tab.classList.remove('bg-brand-600', 'text-white');
+          tab.classList.add('bg-slate-800', 'text-slate-400');
+        });
+        const activeTab = document.getElementById(`tab-${category}`);
+        if (activeTab) {
+          activeTab.classList.remove('bg-slate-800', 'text-slate-400');
+          activeTab.classList.add('bg-brand-600', 'text-white');
+        }
+        this.renderCatalog();
+      }
+
+      updateStats() {
+        document.getElementById('statTotal').innerText = this.mediaItems.length;
+        document.getElementById('statMovies').innerText = this.mediaItems.filter(i => i.category === 'Movie').length;
+        document.getElementById('statGames').innerText = this.mediaItems.filter(i => i.category === 'Game').length;
+        document.getElementById('statMusic').innerText = this.mediaItems.filter(i => i.category === 'Music').length;
+      }
+
+      createMediaCard(item) {
+        const card = document.createElement('div');
+        card.className = "group bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl overflow-hidden shadow-lg transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between";
+
+        const categoryBadgeColor = 
+          item.category === 'Movie' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+          item.category === 'Game' ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' :
+          'bg-rose-500/20 text-rose-400 border-rose-500/30';
+
+        const categoryIcon = 
+          item.category === 'Movie' ? 'fa-film' :
+          item.category === 'Game' ? 'fa-gamepad' : 'fa-compact-disc';
+
+        const fallbackImg = `https://placehold.co/400x600/1e293b/6366f1?text=${encodeURIComponent(item.title)}`;
+
+        card.innerHTML = `
+          <div class="relative aspect-[2/3] w-full bg-slate-950 overflow-hidden">
+            <img 
+              src="${item.coverUrl || fallbackImg}" 
+              alt="${item.title}" 
+              onerror="this.onerror=null; this.src='${fallbackImg}'"
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+            />
+            <div class="absolute top-2 left-2 flex gap-1">
+              <span class="px-2 py-0.5 text-[10px] font-bold rounded-lg border backdrop-blur-md ${categoryBadgeColor} flex items-center gap-1">
+                <i class="fa-solid ${categoryIcon}"></i> ${item.category}
+              </span>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
+            <div class="absolute bottom-2 left-2 right-2 flex items-center justify-between text-xs text-amber-400 font-semibold">
+              <span>${'⭐'.repeat(item.rating || 3)}</span>
+              <span class="text-[10px] text-slate-400 font-mono bg-slate-900/80 px-1.5 py-0.5 rounded">${item.format || 'Physical'}</span>
+            </div>
+          </div>
+          <div class="p-3 flex-grow flex flex-col justify-between space-y-2">
+            <div>
+              <h3 class="text-sm font-bold text-white line-clamp-1 group-hover:text-brand-400 transition-colors">${item.title}</h3>
+              <p class="text-xs text-slate-400 line-clamp-1 mt-0.5">${item.creator || 'Unknown Creator'} ${item.year ? `(${item.year})` : ''}</p>
+              ${item.genre ? `<p class="text-[10px] text-slate-500 mt-1 line-clamp-1">${item.genre}</p>` : ''}
+            </div>
+            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+              <span class="font-mono text-[10px] truncate max-w-[80px]">${item.barcode ? `<i class="fa-solid fa-barcode text-slate-500 mr-1"></i>${item.barcode}` : ''}</span>
+              <div class="flex items-center space-x-1">
+                <button onclick="app.shareItem('${item.id}')" class="p-1.5 hover:text-emerald-400 transition" title="Share Item">
+                  <i class="fa-solid fa-share-nodes"></i>
+                </button>
+                <button onclick="app.openEditModal('${item.id}')" class="p-1.5 hover:text-brand-400 transition" title="Edit Item">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button onclick="app.deleteItem('${item.id}')" class="p-1.5 hover:text-rose-400 transition" title="Delete Item">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        return card;
+      }
+
+      renderCatalog() {
+        const grid = document.getElementById('mediaGrid');
+        const emptyState = document.getElementById('emptyState');
+        const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+        const sortBy = document.getElementById('sortSelect').value;
+
+        let filtered = this.mediaItems.filter(item => {
+          const matchesCategory = this.activeFilter === 'all' || item.category === this.activeFilter;
+          const matchesSearch = 
+            (item.title && item.title.toLowerCase().includes(searchQuery)) ||
+            (item.creator && item.creator.toLowerCase().includes(searchQuery)) ||
+            (item.genre && item.genre.toLowerCase().includes(searchQuery)) ||
+            (item.barcode && item.barcode.includes(searchQuery));
+          
+          return matchesCategory && matchesSearch;
+        });
+
+        filtered.sort((a, b) => {
+          if (sortBy === 'newest') return (b.createdAt || 0) - (a.createdAt || 0);
+          if (sortBy === 'title') return a.title.localeCompare(b.title);
+          if (sortBy === 'year') return (b.year || 0) - (a.year || 0);
+          if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
+          return 0;
+        });
+
+        grid.innerHTML = '';
+
+        if (filtered.length === 0) {
+          emptyState.classList.remove('hidden');
+          emptyState.classList.add('flex');
+        } else {
+          emptyState.classList.add('hidden');
+          emptyState.classList.remove('flex');
+
+          filtered.forEach(item => {
+            const card = this.createMediaCard(item);
+            grid.appendChild(card);
+          });
+        }
+
+        this.updateStats();
+      }
+
+      stopCamera() {
+        this.isScanning = false;
+        this.torchEnabled = false;
+        
+        const torchBtn = document.getElementById('torchBtn');
+        const torchLabel = document.getElementById('torchLabel');
+        const torchIcon = document.getElementById('torchIcon');
+        if (torchBtn) {
+          torchBtn.disabled = true;
+          torchBtn.classList.remove('bg-amber-500/20', 'border-amber-500/40', 'text-amber-300');
+          torchBtn.classList.add('bg-slate-800', 'text-slate-300');
+          if (torchLabel) torchLabel.innerText = 'Light Off';
+          if (torchIcon) torchIcon.className = 'fa-solid fa-bolt text-xs';
+        }
+
+        const video = document.getElementById('cameraVideo');
+        if (video) {
+          video.pause();
+          video.srcObject = null;
+        }
+        if (this.videoStream) {
+          this.videoStream.getTracks().forEach(track => {
+            try { track.stop(); } catch (e) {}
+          });
+          this.videoStream = null;
+          this.videoTrack = null;
+        }
+        if (this.zxingReader) {
+          try { this.zxingReader.reset(); } catch (e) {}
+        }
+      }
+
+      async getAvailableCameras() {
+        const cameraSelect = document.getElementById('cameraSelect');
+        if (!cameraSelect || !navigator.mediaDevices?.enumerateDevices) return;
+
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+          cameraSelect.innerHTML = '<option value="">Default Camera Device...</option>';
+          videoDevices.forEach((device, idx) => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${idx + 1} (${device.deviceId.slice(0, 6)}...)`;
+            if (this.selectedDeviceId === device.deviceId) {
+              option.selected = true;
+            }
+            cameraSelect.appendChild(option);
+          });
+        } catch (e) {
+          console.warn("Could not enumerate camera devices:", e);
+        }
+      }
+
+      async handleCameraChange() {
+        const select = document.getElementById('cameraSelect');
+        this.selectedDeviceId = select.value || null;
+        if (this.isScanning) {
+          await this.openScanner();
+        }
+      }
+
+      async openScanner() {
+        this.vibrate([40]);
+        const modal = document.getElementById('scannerModal');
+        const video = document.getElementById('cameraVideo');
+        const status = document.getElementById('scannerStatus');
+        const errorFallback = document.getElementById('cameraErrorFallback');
+        const viewfinder = document.getElementById('viewfinderOverlay');
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        if (errorFallback) errorFallback.classList.add('hidden');
+        if (viewfinder) viewfinder.classList.remove('opacity-20');
+
+        this.stopCamera();
+        this.isScanning = true;
+
+        status.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Requesting camera access...`;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          this.handleCameraError("Camera API Unavailable", "Camera API is restricted or not supported in this browser environment.");
+          return;
+        }
+
+        try {
+          let stream = null;
+          let lastErr = null;
+
+          const primaryConstraint = this.selectedDeviceId 
+            ? { video: { deviceId: { exact: this.selectedDeviceId } }, audio: false }
+            : { video: { facingMode: { ideal: 'environment' } }, audio: false };
+
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(primaryConstraint);
+          } catch (err1) {
+            lastErr = err1;
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            } catch (err2) {
+              lastErr = err2;
+            }
+          }
+
+          if (!stream) {
+            throw lastErr || new Error("Could not start video source");
+          }
+
+          this.videoStream = stream;
+          this.videoTrack = stream.getVideoTracks()[0];
+          video.srcObject = this.videoStream;
+          
+          try { await video.play(); } catch (e) {}
+
+          await this.getAvailableCameras();
+          this.setupCameraControls();
+
+          status.innerHTML = `<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-camera mr-1"></i> Camera Active</span> - Position UPC barcode inside frame`;
+
+          if ('BarcodeDetector' in window) {
+            try {
+              const barcodeDetector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128'] });
+              this.detectNativeBarcode(barcodeDetector, video);
+            } catch (e) {
+              this.detectZXingBarcode(video);
+            }
+          } else {
+            this.detectZXingBarcode(video);
+          }
+        } catch (err) {
+          console.warn("Camera hardware or permission unavailable:", err?.message || err);
+          this.stopCamera();
+          this.handleCameraError(err?.name || "Camera Error", err?.message || "Could not start video source");
+        }
+      }
+
+      setupCameraControls() {
+        if (!this.videoTrack) return;
+
+        const capabilities = typeof this.videoTrack.getCapabilities === 'function' ? this.videoTrack.getCapabilities() : {};
+        const torchBtn = document.getElementById('torchBtn');
+        const zoomRange = document.getElementById('zoomRange');
+        const focusDistanceRange = document.getElementById('focusDistanceRange');
+
+        if (zoomRange) {
+          zoomRange.disabled = false;
+          zoomRange.value = 1;
+          document.getElementById('zoomVal').innerText = '1.0x';
+          if ('zoom' in capabilities) {
+            zoomRange.min = capabilities.zoom.min || 1;
+            zoomRange.max = capabilities.zoom.max || 4;
+            zoomRange.step = capabilities.zoom.step || 0.1;
+          }
+        }
+
+        if (focusDistanceRange) {
+          focusDistanceRange.disabled = false;
+          focusDistanceRange.value = 100;
+          document.getElementById('focusDistVal').innerText = '100%';
+        }
+
+        if (torchBtn) {
+          torchBtn.disabled = false;
+        }
+
+        this.hasHardwareZoom = 'zoom' in capabilities;
+        this.hasHardwareTorch = 'torch' in capabilities;
+      }
+
+      async refocusCamera() {
+        if (!this.videoTrack) return;
+        this.animateTapRing(window.innerWidth / 2, window.innerHeight / 2);
+
+        try {
+          const caps = typeof this.videoTrack.getCapabilities === 'function' ? this.videoTrack.getCapabilities() : {};
+          
+          if (caps.focusMode && caps.focusMode.includes('single-shot')) {
+            await this.applyTrackConstraints({ advanced: [{ focusMode: 'single-shot' }] });
+            setTimeout(async () => {
+              if (this.videoTrack && caps.focusMode.includes('continuous')) {
+                await this.applyTrackConstraints({ advanced: [{ focusMode: 'continuous' }] });
+              }
+            }, 600);
+          } else {
+            const currentConstraints = this.videoTrack.getConstraints();
+            await this.videoTrack.applyConstraints(currentConstraints);
+          }
+          this.showToast('Triggered camera refocus', 'fa-expand text-brand-400');
+        } catch (err) {
+          this.showToast('Triggered manual focus reset', 'fa-expand text-brand-400');
+        }
+      }
+
+      async toggleTorch() {
+        this.torchEnabled = !this.torchEnabled;
+        const torchBtn = document.getElementById('torchBtn');
+        const torchLabel = document.getElementById('torchLabel');
+        const torchIcon = document.getElementById('torchIcon');
+        const video = document.getElementById('cameraVideo');
+
+        let appliedHardware = false;
+        if (this.videoTrack && this.hasHardwareTorch) {
+          try {
+            await this.applyTrackConstraints({ advanced: [{ torch: this.torchEnabled }] });
+            appliedHardware = true;
+          } catch (e) {
+            appliedHardware = false;
+          }
+        }
+
+        if (this.torchEnabled) {
+          if (torchBtn) {
+            torchBtn.classList.remove('bg-slate-800', 'text-slate-300');
+            torchBtn.classList.add('bg-amber-500/20', 'border-amber-500/40', 'text-amber-300');
+          }
+          if (torchLabel) torchLabel.innerText = appliedHardware ? 'Light ON' : 'Boost ON';
+          if (torchIcon) torchIcon.className = 'fa-solid fa-bolt text-xs text-amber-400';
+          
+          if (!appliedHardware && video) {
+            video.style.filter = (video.style.filter || '') + ' brightness(130%) contrast(110%)';
+          }
+          this.showToast('Camera light / exposure boosted', 'fa-bolt text-amber-400');
+        } else {
+          if (torchBtn) {
+            torchBtn.classList.remove('bg-amber-500/20', 'border-amber-500/40', 'text-amber-300');
+            torchBtn.classList.add('bg-slate-800', 'text-slate-300');
+          }
+          if (torchLabel) torchLabel.innerText = 'Light Off';
+          if (torchIcon) torchIcon.className = 'fa-solid fa-bolt text-xs';
+          
+          if (video) {
+            const currentClarity = document.getElementById('focusDistanceRange')?.value || 100;
+            this.handleClarityChange(currentClarity);
+          }
+          this.showToast('Camera light turned off', 'fa-bolt text-slate-400');
+        }
+      }
+
+      async handleFocusModeChange(mode) {
+        if (mode === 'contrast') {
+          this.handleClarityChange(180);
+          const claritySlider = document.getElementById('focusDistanceRange');
+          if (claritySlider) claritySlider.value = 180;
+          this.showToast('High Contrast Mode Enabled', 'fa-circle-half-stroke text-brand-400');
+          return;
+        }
+
+        if (!this.videoTrack) return;
+        try {
+          await this.applyTrackConstraints({ advanced: [{ focusMode: mode }] });
+          this.showToast(`Focus mode set to: ${mode}`, 'fa-bullseye text-brand-400');
+        } catch (err) {
+          this.showToast('Adjusted focus mode preset', 'fa-bullseye text-brand-400');
+        }
+      }
+
+      async handleZoomChange(value) {
+        const zoomVal = parseFloat(value);
+        const zoomLabel = document.getElementById('zoomVal');
+        
+        let appliedHardware = false;
+        if (this.videoTrack && this.hasHardwareZoom) {
+          try {
+            await this.applyTrackConstraints({ advanced: [{ zoom: zoomVal }] });
+            appliedHardware = true;
+          } catch (err) {
+            appliedHardware = false;
+          }
+        }
+
+        const video = document.getElementById('cameraVideo');
+        if (video) {
+          if (!appliedHardware) {
+            video.style.transform = `scale(${zoomVal})`;
+            video.style.transformOrigin = 'center center';
+          } else {
+            video.style.transform = 'scale(1)';
+          }
+          if (zoomLabel) zoomLabel.innerText = `${zoomVal.toFixed(1)}x`;
+        }
+      }
+
+      handleClarityChange(value) {
+        const val = parseInt(value);
+        const label = document.getElementById('focusDistVal');
+        if (label) label.innerText = `${val}%`;
+
+        const video = document.getElementById('cameraVideo');
+        if (video) {
+          const contrast = val;
+          const brightness = 100 + (val - 100) * 0.15;
+          const brightnessExtra = this.torchEnabled ? ' brightness(130%)' : ` brightness(${brightness}%)`;
+          video.style.filter = `contrast(${contrast}%)${brightnessExtra} grayscale(15%)`;
+        }
+      }
+
+      async applyTrackConstraints(constraints) {
+        if (this.videoTrack && typeof this.videoTrack.applyConstraints === 'function') {
+          return await this.videoTrack.applyConstraints(constraints);
+        }
+      }
+
+      handleViewportTap(event) {
+        const container = document.getElementById('videoContainer');
+        if (!container) return;
+
+        const rect = container.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        this.animateTapRing(x, y);
+        this.refocusCamera();
+      }
+
+      animateTapRing(x, y) {
+        const ring = document.getElementById('tapFocusRing');
+        if (!ring) return;
+
+        ring.style.left = `${x}px`;
+        ring.style.top = `${y}px`;
+        ring.classList.remove('opacity-0', 'scale-150');
+        ring.classList.add('opacity-100', 'scale-100');
+
+        setTimeout(() => {
+          ring.classList.remove('opacity-100', 'scale-100');
+          ring.classList.add('opacity-0', 'scale-150');
+        }, 500);
+      }
+
+      handleCameraError(titleOrErr, msg = '') {
+        const errorFallback = document.getElementById('cameraErrorFallback');
+        const errorTitle = document.getElementById('errorTitle');
+        const errorDesc = document.getElementById('errorDescription');
+        const status = document.getElementById('scannerStatus');
+
+        let userFriendlyTitle = "Camera Unavailable";
+        let userFriendlyDesc = msg || "Could not start video source. Camera may be blocked or in use by another app.";
+
+        if (titleOrErr && typeof titleOrErr === 'string') {
+          userFriendlyTitle = titleOrErr;
+        }
+
+        if (errorTitle) errorTitle.innerText = userFriendlyTitle;
+        if (errorDesc) errorDesc.innerText = userFriendlyDesc;
+        if (errorFallback) {
+          errorFallback.classList.remove('hidden');
+          errorFallback.classList.add('flex');
+        }
+
+        status.innerHTML = `
+          <div class="text-xs text-slate-300">
+            <span class="text-amber-400 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Alternative:</span> Use <strong>Upload Photo</strong> or test a sample UPC below.
+            <div class="mt-2 pt-1 border-t border-slate-800 flex flex-wrap justify-center gap-1 text-[10px] font-mono">
+              <button onclick="app.handleScannedUPC('024543210982')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded">024543210982 (Movie)</button>
+              <button onclick="app.handleScannedUPC('004549659042')" class="px-2 py-0.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded">004549659042 (Game)</button>
+              <button onclick="app.handleScannedUPC('009362498601')" class="px-2 py-0.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded">009362498601 (Music)</button>
+            </div>
+          </div>
+        `;
+      }
+
+      async scanBarcodeFromFile(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const status = document.getElementById('scannerStatus');
+        status.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Decoding barcode from photo...`;
+
+        try {
+          const img = new Image();
+          img.src = URL.createObjectURL(file);
+          await img.decode();
+
+          let barcodeText = null;
+
+          if ('BarcodeDetector' in window) {
+            try {
+              const detector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128'] });
+              const barcodes = await detector.detect(img);
+              if (barcodes.length > 0) {
+                barcodeText = barcodes[0].rawValue;
+              }
+            } catch (e) {}
+          }
+
+          if (!barcodeText && typeof ZXing !== 'undefined') {
+            try {
+              const reader = new ZXing.BrowserMultiFormatReader();
+              const result = await reader.decodeFromImageElement(img);
+              if (result) barcodeText = result.getText();
+            } catch (e) {}
+          }
+
+          if (barcodeText) {
+            this.showToast(`Decoded barcode: ${barcodeText}`, 'fa-barcode text-emerald-400');
+            this.handleScannedUPC(barcodeText);
+          } else {
+            this.showToast('No readable UPC barcode found in image.', 'fa-triangle-exclamation text-amber-400');
+            status.innerText = "No barcode detected in photo. Try manual entry below.";
+          }
+        } catch (e) {
+          console.error("Image scan error:", e);
+          this.showToast('Could not process image barcode.', 'fa-circle-xmark text-rose-400');
+          status.innerText = "Error decoding photo barcode.";
+        }
+      }
+
+      async detectNativeBarcode(detector, video) {
+        if (!this.isScanning) return;
+
+        try {
+          const barcodes = await detector.detect(video);
+          if (barcodes.length > 0) {
+            const upcCode = barcodes[0].rawValue;
+            this.handleScannedUPC(upcCode);
+            return;
+          }
+        } catch (e) {}
+
+        if (this.isScanning) {
+          requestAnimationFrame(() => this.detectNativeBarcode(detector, video));
+        }
+      }
+
+      detectZXingBarcode(video) {
+        if (typeof ZXing !== 'undefined') {
+          this.zxingReader = new ZXing.BrowserMultiFormatReader();
+          this.zxingReader.decodeFromVideoElement(video, (result, err) => {
+            if (result && this.isScanning) {
+              this.handleScannedUPC(result.getText());
+            }
+          });
+        }
+      }
+
+      async handleScannedUPC(upcCode) {
+        this.vibrate([100, 50, 100]);
+        this.closeScanner();
+        this.showToast(`Searching metadata for UPC: ${upcCode}...`, 'fa-magnifying-glass text-brand-400');
+
+        const metadata = await this.lookupUPCMetadata(upcCode);
+        this.openEditModal(null, metadata);
+      }
+
+      processManualBarcode() {
+        const upc = document.getElementById('manualUpcInput').value.trim();
+        if (!upc) return;
+        this.handleScannedUPC(upc);
+      }
+
+      closeScanner() {
+        this.stopCamera();
+        document.getElementById('scannerModal').classList.add('hidden');
+        document.getElementById('scannerModal').classList.remove('flex');
+      }
+
+      async lookupUPCMetadata(barcode) {
+        let metadata = {
+          barcode: barcode,
+          title: '',
+          creator: '',
+          category: 'Movie',
+          year: new Date().getFullYear(),
+          genre: '',
+          coverUrl: '',
+          format: 'Physical'
+        };
+
+        try {
+          if (barcode === '024543210982') {
+            return { barcode, title: 'Die Hard', creator: 'John McTiernan', category: 'Movie', year: 1988, genre: 'Action, Thriller', format: 'Blu-ray', coverUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400' };
+          }
+          if (barcode === '004549659042') {
+            return { barcode, title: 'Super Mario Odyssey', creator: 'Nintendo', category: 'Game', year: 2017, genre: 'Platformer', format: 'Switch Game', coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400' };
+          }
+          if (barcode === '009362498601') {
+            return { barcode, title: 'American Idiot', creator: 'Green Day', category: 'Music', year: 2004, genre: 'Punk Rock', format: 'Audio CD', coverUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400' };
+          }
+
+          const req = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+          if (req.ok) {
+            const data = await req.json();
+            if (data.status === 1 && data.product) {
+              metadata.title = data.product.product_name || '';
+              metadata.creator = data.product.brands || '';
+              metadata.coverUrl = data.product.image_front_url || '';
+            }
+          }
+
+          if (!metadata.title) {
+            const mbReq = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${barcode}&fmt=json`);
+            if (mbReq.ok) {
+              const mbData = await mbReq.json();
+              if (mbData.releases && mbData.releases.length > 0) {
+                const release = mbData.releases[0];
+                metadata.title = release.title || '';
+                metadata.creator = release['artist-credit']?.[0]?.name || '';
+                metadata.category = 'Music';
+                metadata.year = release.date ? parseInt(release.date.substring(0, 4)) : new Date().getFullYear();
+                metadata.format = 'Audio CD';
+                if (release.id) {
+                  metadata.coverUrl = `https://coverartarchive.org/release/${release.id}/front-250`;
+                }
+              }
+            }
+          }
+
+          if (!metadata.title) {
+            metadata.title = `Scanned Item (${barcode})`;
+          }
+        } catch (error) {
+          console.warn("API Lookup warning:", error);
+          metadata.title = `Item ${barcode}`;
+        }
+
+        return metadata;
+      }
+
+      openEditModal(id = null, prefillData = null) {
+        const modal = document.getElementById('editModal');
+        const form = document.getElementById('mediaForm');
+        
+        form.reset();
+        document.getElementById('itemId').value = '';
+
+        if (id) {
+          const item = this.mediaItems.find(i => i.id === id);
+          if (item) {
+            document.getElementById('modalTitle').innerText = 'Edit Media Item';
+            document.getElementById('itemId').value = item.id;
+            document.getElementById('itemTitle').value = item.title || '';
+            document.getElementById('itemCreator').value = item.creator || '';
+            document.getElementById('itemYear').value = item.year || '';
+            document.getElementById('itemBarcode').value = item.barcode || '';
+            document.getElementById('itemGenre').value = item.genre || '';
+            document.getElementById('itemCoverUrl').value = item.coverUrl || '';
+            document.getElementById('itemRating').value = item.rating || 3;
+            document.getElementById('itemFormat').value = item.format || '';
+
+            const radio = form.querySelector(`input[name="category"][value="${item.category}"]`);
+            if (radio) radio.checked = true;
+          }
+        } else if (prefillData) {
+          document.getElementById('modalTitle').innerText = 'Add Scanned Item';
+          document.getElementById('itemTitle').value = prefillData.title || '';
+          document.getElementById('itemCreator').value = prefillData.creator || '';
+          document.getElementById('itemBarcode').value = prefillData.barcode || '';
+          document.getElementById('itemYear').value = prefillData.year || '';
+          document.getElementById('itemCoverUrl').value = prefillData.coverUrl || '';
+          document.getElementById('itemFormat').value = prefillData.format || '';
+
+          const radio = form.querySelector(`input[name="category"][value="${prefillData.category}"]`);
+          if (radio) radio.checked = true;
+        } else {
+          document.getElementById('modalTitle').innerText = 'Add Item to Catalog';
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+
+      closeEditModal() {
+        const modal = document.getElementById('editModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      saveItem(e) {
+        e.preventDefault();
+
+        const form = document.getElementById('mediaForm');
+        const id = document.getElementById('itemId').value;
+        const selectedCategory = form.querySelector('input[name="category"]:checked').value;
+
+        const itemData = {
+          id: id || 'item_' + Date.now(),
+          category: selectedCategory,
+          title: document.getElementById('itemTitle').value.trim(),
+          creator: document.getElementById('itemCreator').value.trim(),
+          year: parseInt(document.getElementById('itemYear').value) || new Date().getFullYear(),
+          barcode: document.getElementById('itemBarcode').value.trim(),
+          genre: document.getElementById('itemGenre').value.trim(),
+          coverUrl: document.getElementById('itemCoverUrl').value.trim(),
+          rating: parseInt(document.getElementById('itemRating').value) || 3,
+          format: document.getElementById('itemFormat').value.trim(),
+          createdAt: id ? (this.mediaItems.find(i => i.id === id)?.createdAt || Date.now()) : Date.now()
+        };
+
+        if (id) {
+          const index = this.mediaItems.findIndex(i => i.id === id);
+          if (index !== -1) this.mediaItems[index] = itemData;
+          this.showToast('Item updated successfully!', 'fa-circle-check text-emerald-400');
+        } else {
+          this.mediaItems.unshift(itemData);
+          this.showToast('Added new item to catalog!', 'fa-circle-check text-emerald-400');
+        }
+
+        this.persistData();
+        this.closeEditModal();
+        this.renderCatalog();
+      }
+
+      async deleteItem(id) {
+        this.vibrate([40]);
+        const item = this.mediaItems.find(i => i.id === id);
+        if (!item) return;
+
+        const confirmed = await this.showConfirmModal(
+          'Delete Item',
+          `Are you sure you want to remove "${item.title}" from your catalog?`,
+          'fa-trash-can text-rose-400'
+        );
+
+        if (confirmed) {
+          this.vibrate([60]);
+          this.mediaItems = this.mediaItems.filter(i => i.id !== id);
+          this.persistData();
+          this.renderCatalog();
+          this.showToast('Item deleted from collection.', 'fa-trash-can text-slate-400');
+        }
+      }
+
+      persistData() {
+        localStorage.setItem('mediavault_catalog', JSON.stringify(this.mediaItems));
+      }
+
+      exportDatabase() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.mediaItems, null, 2));
+        const downloadAnchor = document.createElement('a');
+        const filename = `mediavault_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", filename);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+
+        this.showToast('Exported catalog backup JSON file.', 'fa-file-arrow-down text-brand-400');
+      }
+
+      async importDatabase(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            if (Array.isArray(imported)) {
+              const confirmed = await this.showConfirmModal(
+                'Import Catalog',
+                `Import ${imported.length} items into your MediaVault collection?`,
+                'fa-file-import text-emerald-400'
+              );
+
+              if (confirmed) {
+                const existingIds = new Set(this.mediaItems.map(i => i.id));
+                imported.forEach(item => {
+                  if (!existingIds.has(item.id)) {
+                    this.mediaItems.push(item);
+                  }
+                });
+                this.persistData();
+                this.renderCatalog();
+                this.showToast(`Successfully imported catalog items!`, 'fa-circle-check text-emerald-400');
+              }
+            } else {
+              this.showToast('Invalid JSON catalog structure.', 'fa-circle-xmark text-rose-400');
+            }
+          } catch (err) {
+            this.showToast('Failed to parse uploaded JSON file.', 'fa-circle-xmark text-rose-400');
+          }
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    const app = new MediaCatalogApp();
+    window.app = app;
+  </script>
+</body>
+</html>
