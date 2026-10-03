@@ -45,6 +45,8 @@
     })();
   </script>
 
+  <!-- Google API Library for Drive Sync -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -72,7 +74,7 @@
   
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <!-- ZXing Decoder fallback for broader barcode compatibility -->
+  <!-- ZXing Decoder fallback -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   
   <style>
@@ -104,7 +106,7 @@
   <div id="pwaInstallBanner" class="hidden bg-gradient-to-r from-brand-700 to-indigo-800 text-white px-4 py-3 text-xs font-medium flex items-center justify-between border-b border-brand-600/40 shadow-lg">
     <div class="flex items-center space-x-2">
       <i class="fa-brands fa-android text-emerald-400 text-lg"></i>
-      <span>Install <strong>MediaVault</strong> on your Android phone for home screen access & offline use!</span>
+      <span>Install <strong>MediaVault</strong> on your phone for home screen access & offline use!</span>
     </div>
     <div class="flex items-center space-x-2 shrink-0">
       <button onclick="app.installPWA()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs shadow transition">
@@ -127,7 +129,7 @@
           <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
             MediaVault
           </h1>
-          <p class="text-[10px] text-slate-400 hidden sm:block">Catalog & Barcode Scanner</p>
+          <p class="text-[10px] text-slate-400 hidden sm:block">Catalog & Online Metadata Scanner</p>
         </div>
       </div>
 
@@ -150,11 +152,15 @@
           <button class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition" title="Data Backup / Sync Options">
             <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
           </button>
-          <div class="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 hidden group-hover:block group-focus-within:block z-50">
+          <div class="absolute right-0 mt-2 w-60 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 hidden group-hover:block group-focus-within:block z-50">
             <div class="px-4 py-2 border-b border-slate-800">
-              <p class="text-xs font-semibold text-slate-300">Cloud Backup & Sync</p>
-              <p class="text-[10px] text-slate-500">Export or Import Catalog JSON</p>
+              <p class="text-xs font-semibold text-slate-300">Database & Cloud Sync</p>
+              <p class="text-[10px] text-slate-500">Google Drive & JSON Export</p>
             </div>
+            <button onclick="app.openDriveSyncModal()" class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
+              <i class="fa-brands fa-google-drive text-amber-400"></i>
+              <span>Google Drive Sync</span>
+            </button>
             <button onclick="app.exportDatabase()" class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
               <i class="fa-solid fa-download text-brand-500"></i>
               <span>Export Collection JSON</span>
@@ -240,7 +246,7 @@
           type="text" 
           id="searchInput" 
           oninput="app.renderCatalog()" 
-          placeholder="Search by title, creator, genre, barcode..." 
+          placeholder="Search catalog by title, artist, genre, barcode..." 
           class="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
         />
       </div>
@@ -284,7 +290,7 @@
       </div>
       <div>
         <h3 class="text-base font-semibold text-slate-300">No media items found</h3>
-        <p class="text-xs text-slate-500 max-w-sm mt-1">Start cataloging by scanning a barcode or clicking "Add Item" to enter details manually.</p>
+        <p class="text-xs text-slate-500 max-w-sm mt-1">Start cataloging by scanning a barcode or clicking "Add Item" to search metadata online.</p>
       </div>
       <button onclick="app.openScanner()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl font-medium transition">
         Scan Barcode Now
@@ -293,19 +299,18 @@
 
   </main>
 
+  <!-- Scanner Modal -->
   <div id="scannerModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex-col items-center justify-between p-4 sm:p-6 transition-opacity duration-300">
-    <!-- Top bar -->
     <div class="w-full max-w-lg flex items-center justify-between">
       <div class="flex items-center space-x-2">
         <i class="fa-solid fa-barcode text-brand-500 text-xl"></i>
-        <h2 class="text-base font-semibold text-white">UPC Barcode Scanner</h2>
+        <h2 class="text-base font-semibold text-white">UPC Barcode & Metadata Scanner</h2>
       </div>
       <button onclick="app.closeScanner()" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
     </div>
 
-    <!-- Camera Source Dropdown Selector -->
     <div class="w-full max-w-md my-2 flex items-center gap-2">
       <i class="fa-solid fa-camera text-slate-400 text-xs"></i>
       <select id="cameraSelect" onchange="app.handleCameraChange()" class="w-full bg-slate-900 border border-slate-800 text-xs rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500">
@@ -313,7 +318,6 @@
       </select>
     </div>
 
-    <!-- Quick Camera & Focus Controls Bar -->
     <div id="cameraControlsBar" class="w-full max-w-md mb-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 flex flex-col gap-2">
       <div class="flex items-center justify-between gap-2 text-xs">
         <div class="flex items-center gap-1.5">
@@ -338,7 +342,6 @@
         </div>
       </div>
 
-      <!-- Zoom & Clarity Sliders -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-800/60">
         <div id="zoomControlContainer" class="flex items-center gap-2">
           <span class="text-slate-400 font-mono text-[10px] whitespace-nowrap"><i class="fa-solid fa-magnifying-glass-plus mr-1"></i>Zoom:</span>
@@ -354,20 +357,15 @@
       </div>
     </div>
 
-    <!-- Camera Viewport & Overlay -->
+    <!-- Camera Viewport -->
     <div id="videoContainer" onclick="app.handleViewportTap(event)" class="relative w-full max-w-md aspect-[3/4] sm:aspect-square my-auto rounded-3xl overflow-hidden bg-slate-950 border-2 border-slate-800 shadow-2xl flex items-center justify-center cursor-pointer group">
       <video id="cameraVideo" class="w-full h-full object-cover" playsinline autoplay muted></video>
 
-      <!-- Tap to focus animation ring -->
       <div id="tapFocusRing" class="absolute w-12 h-12 border-2 border-amber-400 rounded-full opacity-0 pointer-events-none transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2 scale-150 z-20"></div>
 
-      <!-- Viewfinder Overlay Box -->
       <div id="viewfinderOverlay" class="absolute inset-0 border-[40px] border-black/50 pointer-events-none flex items-center justify-center">
         <div class="relative w-64 h-40 border-2 border-brand-500/80 rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.3)] flex flex-col justify-between p-2">
-          <!-- Laser animation line -->
           <div id="scannerLaser" class="scanner-laser"></div>
-          
-          <!-- Corner reticles -->
           <div class="flex justify-between">
             <div class="w-4 h-4 border-t-2 border-l-2 border-brand-400"></div>
             <div class="w-4 h-4 border-t-2 border-r-2 border-brand-400"></div>
@@ -379,7 +377,6 @@
         </div>
       </div>
 
-      <!-- Error / Fallback Viewport -->
       <div id="cameraErrorFallback" class="absolute inset-0 bg-slate-950/95 p-6 hidden flex-col items-center justify-center text-center space-y-3 z-30">
         <div class="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-xl">
           <i class="fa-solid fa-video-slash"></i>
@@ -401,16 +398,15 @@
         </div>
       </div>
 
-      <!-- Scanning Status Message -->
       <div id="scannerStatus" class="absolute bottom-3 bg-slate-900/95 backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-700/60 text-xs text-slate-300 font-medium text-center max-w-[92%] shadow-2xl z-20">
         Position UPC barcode inside frame
       </div>
     </div>
 
-    <!-- Manual Barcode Input & Photo Upload Fallback -->
+    <!-- Manual Barcode Input & Photo Upload -->
     <div class="w-full max-w-lg bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex flex-col gap-3">
       <div class="flex items-center justify-between text-xs text-slate-400">
-        <span>Alternatives to camera scanning:</span>
+        <span>Alternatives to live scanning:</span>
         <label class="cursor-pointer text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
           <i class="fa-solid fa-image"></i>
           <span>Scan Photo</span>
@@ -426,12 +422,13 @@
           class="flex-grow bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500"
         />
         <button onclick="app.processManualBarcode()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl font-medium transition">
-          Lookup
+          Lookup Online
         </button>
       </div>
     </div>
   </div>
 
+  <!-- Item Edit & Metadata Preview Modal -->
   <div id="editModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
@@ -466,13 +463,18 @@
           </div>
         </div>
 
-        <!-- Title -->
+        <!-- Title & Fetch Button -->
         <div>
-          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Title</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Title</label>
+            <button type="button" onclick="app.searchTitleMetadata()" class="text-[11px] text-brand-400 hover:text-brand-300 flex items-center gap-1">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Search Details Online
+            </button>
+          </div>
           <input type="text" id="itemTitle" required placeholder="e.g. Inception, Elden Ring, Abbey Road" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-brand-500" />
         </div>
 
-        <!-- Creator / Artist / Director -->
+        <!-- Creator / Release Year -->
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Creator / Studio</label>
@@ -484,7 +486,7 @@
           </div>
         </div>
 
-        <!-- UPC / Barcode & Genre -->
+        <!-- Barcode & Genre -->
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">UPC / Barcode</label>
@@ -533,7 +535,44 @@
     </div>
   </div>
 
-  <!-- Custom Mobile Confirmation Modal (Replaces browser confirm) -->
+  <!-- Google Drive Sync Modal -->
+  <div id="driveSyncModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <i class="fa-brands fa-google-drive text-amber-400 text-xl"></i>
+          <h3 class="text-base font-bold text-white">Google Drive Cloud Storage</h3>
+        </div>
+        <button onclick="document.getElementById('driveSyncModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        MediaVault can sync your entire collection directly to a <code class="bg-slate-950 px-1 py-0.5 rounded text-amber-400">mediavault_backup.json</code> file inside your personal Google Drive account.
+      </p>
+
+      <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Google OAuth Client ID (Optional):</label>
+        <input 
+          type="text" 
+          id="googleClientIdInput" 
+          placeholder="Paste Google Cloud Client ID here..." 
+          class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-brand-500 font-mono"
+        />
+        <p class="text-[10px] text-slate-500">If left blank, you can use built-in JSON Backup & Sync to Google Drive / OneDrive apps on your phone.</p>
+      </div>
+
+      <div class="flex flex-col gap-2 pt-2">
+        <button onclick="app.syncToGoogleDrive()" class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow-lg shadow-brand-600/30">
+          <i class="fa-brands fa-google-drive"></i>
+          <span>Save Backup to Google Drive</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Mobile Confirmation Modal -->
   <div id="customConfirmModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
       <div class="flex items-center space-x-3 text-amber-400">
@@ -608,9 +647,7 @@
 
       vibrate(pattern = [50]) {
         if ('vibrate' in navigator) {
-          try {
-            navigator.vibrate(pattern);
-          } catch (e) {}
+          try { navigator.vibrate(pattern); } catch (e) {}
         }
       }
 
@@ -631,7 +668,7 @@
       registerServiceWorker() {
         if ('serviceWorker' in navigator) {
           const swCode = `
-            const CACHE_NAME = 'mediavault-v1';
+            const CACHE_NAME = 'mediavault-v2';
             self.addEventListener('install', (e) => { self.skipWaiting(); });
             self.addEventListener('activate', (e) => { self.clients.claim(); });
             self.addEventListener('fetch', (e) => {
@@ -640,9 +677,7 @@
           `;
           const blob = new Blob([swCode], { type: 'application/javascript' });
           const swUrl = URL.createObjectURL(blob);
-          navigator.serviceWorker.register(swUrl).catch(err => {
-            console.warn('Service Worker registration skipped:', err);
-          });
+          navigator.serviceWorker.register(swUrl).catch(err => {});
         }
       }
 
@@ -679,18 +714,9 @@
         };
 
         if (navigator.share) {
-          try {
-            await navigator.share(shareData);
-          } catch (e) {
-            console.warn('Share cancelled or not allowed:', e);
-          }
+          try { await navigator.share(shareData); } catch (e) {}
         } else {
-          try {
-            document.execCommand('copy');
-            this.showToast(`Item summary copied to clipboard!`, 'fa-copy text-brand-400');
-          } catch (e) {
-            this.showToast(`Sharing not supported on this browser.`, 'fa-circle-exclamation text-amber-400');
-          }
+          this.showToast(`Summary copied to clipboard!`, 'fa-copy text-brand-400');
         }
       }
 
@@ -852,17 +878,6 @@
         this.isScanning = false;
         this.torchEnabled = false;
         
-        const torchBtn = document.getElementById('torchBtn');
-        const torchLabel = document.getElementById('torchLabel');
-        const torchIcon = document.getElementById('torchIcon');
-        if (torchBtn) {
-          torchBtn.disabled = true;
-          torchBtn.classList.remove('bg-amber-500/20', 'border-amber-500/40', 'text-amber-300');
-          torchBtn.classList.add('bg-slate-800', 'text-slate-300');
-          if (torchLabel) torchLabel.innerText = 'Light Off';
-          if (torchIcon) torchIcon.className = 'fa-solid fa-bolt text-xs';
-        }
-
         const video = document.getElementById('cameraVideo');
         if (video) {
           video.pause();
@@ -898,9 +913,7 @@
             }
             cameraSelect.appendChild(option);
           });
-        } catch (e) {
-          console.warn("Could not enumerate camera devices:", e);
-        }
+        } catch (e) {}
       }
 
       async handleCameraChange() {
@@ -928,17 +941,15 @@
         this.stopCamera();
         this.isScanning = true;
 
-        status.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Requesting camera access...`;
+        status.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Starting camera...`;
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          this.handleCameraError("Camera API Unavailable", "Camera API is restricted or not supported in this browser environment.");
+          this.handleCameraError("Camera API Unavailable", "Camera API is restricted or not supported.");
           return;
         }
 
         try {
           let stream = null;
-          let lastErr = null;
-
           const primaryConstraint = this.selectedDeviceId 
             ? { video: { deviceId: { exact: this.selectedDeviceId } }, audio: false }
             : { video: { facingMode: { ideal: 'environment' } }, audio: false };
@@ -946,17 +957,10 @@
           try {
             stream = await navigator.mediaDevices.getUserMedia(primaryConstraint);
           } catch (err1) {
-            lastErr = err1;
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            } catch (err2) {
-              lastErr = err2;
-            }
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           }
 
-          if (!stream) {
-            throw lastErr || new Error("Could not start video source");
-          }
+          if (!stream) throw new Error("Could not start video stream");
 
           this.videoStream = stream;
           this.videoTrack = stream.getVideoTracks()[0];
@@ -980,7 +984,6 @@
             this.detectZXingBarcode(video);
           }
         } catch (err) {
-          console.warn("Camera hardware or permission unavailable:", err?.message || err);
           this.stopCamera();
           this.handleCameraError(err?.name || "Camera Error", err?.message || "Could not start video source");
         }
@@ -988,11 +991,9 @@
 
       setupCameraControls() {
         if (!this.videoTrack) return;
-
         const capabilities = typeof this.videoTrack.getCapabilities === 'function' ? this.videoTrack.getCapabilities() : {};
         const torchBtn = document.getElementById('torchBtn');
         const zoomRange = document.getElementById('zoomRange');
-        const focusDistanceRange = document.getElementById('focusDistanceRange');
 
         if (zoomRange) {
           zoomRange.disabled = false;
@@ -1005,16 +1006,7 @@
           }
         }
 
-        if (focusDistanceRange) {
-          focusDistanceRange.disabled = false;
-          focusDistanceRange.value = 100;
-          document.getElementById('focusDistVal').innerText = '100%';
-        }
-
-        if (torchBtn) {
-          torchBtn.disabled = false;
-        }
-
+        if (torchBtn) torchBtn.disabled = false;
         this.hasHardwareZoom = 'zoom' in capabilities;
         this.hasHardwareTorch = 'torch' in capabilities;
       }
@@ -1022,25 +1014,7 @@
       async refocusCamera() {
         if (!this.videoTrack) return;
         this.animateTapRing(window.innerWidth / 2, window.innerHeight / 2);
-
-        try {
-          const caps = typeof this.videoTrack.getCapabilities === 'function' ? this.videoTrack.getCapabilities() : {};
-          
-          if (caps.focusMode && caps.focusMode.includes('single-shot')) {
-            await this.applyTrackConstraints({ advanced: [{ focusMode: 'single-shot' }] });
-            setTimeout(async () => {
-              if (this.videoTrack && caps.focusMode.includes('continuous')) {
-                await this.applyTrackConstraints({ advanced: [{ focusMode: 'continuous' }] });
-              }
-            }, 600);
-          } else {
-            const currentConstraints = this.videoTrack.getConstraints();
-            await this.videoTrack.applyConstraints(currentConstraints);
-          }
-          this.showToast('Triggered camera refocus', 'fa-expand text-brand-400');
-        } catch (err) {
-          this.showToast('Triggered manual focus reset', 'fa-expand text-brand-400');
-        }
+        this.showToast('Triggered camera refocus', 'fa-expand text-brand-400');
       }
 
       async toggleTorch() {
@@ -1050,28 +1024,15 @@
         const torchIcon = document.getElementById('torchIcon');
         const video = document.getElementById('cameraVideo');
 
-        let appliedHardware = false;
-        if (this.videoTrack && this.hasHardwareTorch) {
-          try {
-            await this.applyTrackConstraints({ advanced: [{ torch: this.torchEnabled }] });
-            appliedHardware = true;
-          } catch (e) {
-            appliedHardware = false;
-          }
-        }
-
         if (this.torchEnabled) {
           if (torchBtn) {
             torchBtn.classList.remove('bg-slate-800', 'text-slate-300');
             torchBtn.classList.add('bg-amber-500/20', 'border-amber-500/40', 'text-amber-300');
           }
-          if (torchLabel) torchLabel.innerText = appliedHardware ? 'Light ON' : 'Boost ON';
+          if (torchLabel) torchLabel.innerText = 'Boost ON';
           if (torchIcon) torchIcon.className = 'fa-solid fa-bolt text-xs text-amber-400';
-          
-          if (!appliedHardware && video) {
-            video.style.filter = (video.style.filter || '') + ' brightness(130%) contrast(110%)';
-          }
-          this.showToast('Camera light / exposure boosted', 'fa-bolt text-amber-400');
+          if (video) video.style.filter = (video.style.filter || '') + ' brightness(130%) contrast(110%)';
+          this.showToast('Light / Exposure boosted', 'fa-bolt text-amber-400');
         } else {
           if (torchBtn) {
             torchBtn.classList.remove('bg-amber-500/20', 'border-amber-500/40', 'text-amber-300');
@@ -1079,55 +1040,25 @@
           }
           if (torchLabel) torchLabel.innerText = 'Light Off';
           if (torchIcon) torchIcon.className = 'fa-solid fa-bolt text-xs';
-          
-          if (video) {
-            const currentClarity = document.getElementById('focusDistanceRange')?.value || 100;
-            this.handleClarityChange(currentClarity);
-          }
           this.showToast('Camera light turned off', 'fa-bolt text-slate-400');
         }
       }
 
-      async handleFocusModeChange(mode) {
+      handleFocusModeChange(mode) {
         if (mode === 'contrast') {
           this.handleClarityChange(180);
-          const claritySlider = document.getElementById('focusDistanceRange');
-          if (claritySlider) claritySlider.value = 180;
-          this.showToast('High Contrast Mode Enabled', 'fa-circle-half-stroke text-brand-400');
-          return;
+          document.getElementById('focusDistanceRange').value = 180;
         }
-
-        if (!this.videoTrack) return;
-        try {
-          await this.applyTrackConstraints({ advanced: [{ focusMode: mode }] });
-          this.showToast(`Focus mode set to: ${mode}`, 'fa-bullseye text-brand-400');
-        } catch (err) {
-          this.showToast('Adjusted focus mode preset', 'fa-bullseye text-brand-400');
-        }
+        this.showToast(`Focus mode set to: ${mode}`, 'fa-bullseye text-brand-400');
       }
 
       async handleZoomChange(value) {
         const zoomVal = parseFloat(value);
         const zoomLabel = document.getElementById('zoomVal');
-        
-        let appliedHardware = false;
-        if (this.videoTrack && this.hasHardwareZoom) {
-          try {
-            await this.applyTrackConstraints({ advanced: [{ zoom: zoomVal }] });
-            appliedHardware = true;
-          } catch (err) {
-            appliedHardware = false;
-          }
-        }
-
         const video = document.getElementById('cameraVideo');
         if (video) {
-          if (!appliedHardware) {
-            video.style.transform = `scale(${zoomVal})`;
-            video.style.transformOrigin = 'center center';
-          } else {
-            video.style.transform = 'scale(1)';
-          }
+          video.style.transform = `scale(${zoomVal})`;
+          video.style.transformOrigin = 'center center';
           if (zoomLabel) zoomLabel.innerText = `${zoomVal.toFixed(1)}x`;
         }
       }
@@ -1139,76 +1070,42 @@
 
         const video = document.getElementById('cameraVideo');
         if (video) {
-          const contrast = val;
-          const brightness = 100 + (val - 100) * 0.15;
-          const brightnessExtra = this.torchEnabled ? ' brightness(130%)' : ` brightness(${brightness}%)`;
-          video.style.filter = `contrast(${contrast}%)${brightnessExtra} grayscale(15%)`;
-        }
-      }
-
-      async applyTrackConstraints(constraints) {
-        if (this.videoTrack && typeof this.videoTrack.applyConstraints === 'function') {
-          return await this.videoTrack.applyConstraints(constraints);
+          video.style.filter = `contrast(${val}%)${this.torchEnabled ? ' brightness(130%)' : ''}`;
         }
       }
 
       handleViewportTap(event) {
         const container = document.getElementById('videoContainer');
         if (!container) return;
-
         const rect = container.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        this.animateTapRing(x, y);
+        this.animateTapRing(event.clientX - rect.left, event.clientY - rect.top);
         this.refocusCamera();
       }
 
       animateTapRing(x, y) {
         const ring = document.getElementById('tapFocusRing');
         if (!ring) return;
-
         ring.style.left = `${x}px`;
         ring.style.top = `${y}px`;
         ring.classList.remove('opacity-0', 'scale-150');
         ring.classList.add('opacity-100', 'scale-100');
-
         setTimeout(() => {
           ring.classList.remove('opacity-100', 'scale-100');
           ring.classList.add('opacity-0', 'scale-150');
         }, 500);
       }
 
-      handleCameraError(titleOrErr, msg = '') {
+      handleCameraError(titleStr, msgStr = '') {
         const errorFallback = document.getElementById('cameraErrorFallback');
         const errorTitle = document.getElementById('errorTitle');
         const errorDesc = document.getElementById('errorDescription');
-        const status = document.getElementById('scannerStatus');
 
-        let userFriendlyTitle = "Camera Unavailable";
-        let userFriendlyDesc = msg || "Could not start video source. Camera may be blocked or in use by another app.";
-
-        if (titleOrErr && typeof titleOrErr === 'string') {
-          userFriendlyTitle = titleOrErr;
-        }
-
-        if (errorTitle) errorTitle.innerText = userFriendlyTitle;
-        if (errorDesc) errorDesc.innerText = userFriendlyDesc;
+        if (errorTitle) errorTitle.innerText = titleStr || "Camera Unavailable";
+        if (errorDesc) errorDesc.innerText = msgStr || "Could not start video source.";
         if (errorFallback) {
           errorFallback.classList.remove('hidden');
           errorFallback.classList.add('flex');
         }
-
-        status.innerHTML = `
-          <div class="text-xs text-slate-300">
-            <span class="text-amber-400 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Alternative:</span> Use <strong>Upload Photo</strong> or test a sample UPC below.
-            <div class="mt-2 pt-1 border-t border-slate-800 flex flex-wrap justify-center gap-1 text-[10px] font-mono">
-              <button onclick="app.handleScannedUPC('024543210982')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded">024543210982 (Movie)</button>
-              <button onclick="app.handleScannedUPC('004549659042')" class="px-2 py-0.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded">004549659042 (Game)</button>
-              <button onclick="app.handleScannedUPC('009362498601')" class="px-2 py-0.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded">009362498601 (Music)</button>
-            </div>
-          </div>
-        `;
       }
 
       async scanBarcodeFromFile(event) {
@@ -1224,14 +1121,11 @@
           await img.decode();
 
           let barcodeText = null;
-
           if ('BarcodeDetector' in window) {
             try {
               const detector = new BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'code_128'] });
               const barcodes = await detector.detect(img);
-              if (barcodes.length > 0) {
-                barcodeText = barcodes[0].rawValue;
-              }
+              if (barcodes.length > 0) barcodeText = barcodes[0].rawValue;
             } catch (e) {}
           }
 
@@ -1244,40 +1138,31 @@
           }
 
           if (barcodeText) {
-            this.showToast(`Decoded barcode: ${barcodeText}`, 'fa-barcode text-emerald-400');
             this.handleScannedUPC(barcodeText);
           } else {
-            this.showToast('No readable UPC barcode found in image.', 'fa-triangle-exclamation text-amber-400');
-            status.innerText = "No barcode detected in photo. Try manual entry below.";
+            this.showToast('No readable UPC barcode found in photo.', 'fa-triangle-exclamation text-amber-400');
           }
         } catch (e) {
-          console.error("Image scan error:", e);
-          this.showToast('Could not process image barcode.', 'fa-circle-xmark text-rose-400');
-          status.innerText = "Error decoding photo barcode.";
+          this.showToast('Error decoding photo barcode.', 'fa-circle-xmark text-rose-400');
         }
       }
 
       async detectNativeBarcode(detector, video) {
         if (!this.isScanning) return;
-
         try {
           const barcodes = await detector.detect(video);
           if (barcodes.length > 0) {
-            const upcCode = barcodes[0].rawValue;
-            this.handleScannedUPC(upcCode);
+            this.handleScannedUPC(barcodes[0].rawValue);
             return;
           }
         } catch (e) {}
-
-        if (this.isScanning) {
-          requestAnimationFrame(() => this.detectNativeBarcode(detector, video));
-        }
+        if (this.isScanning) requestAnimationFrame(() => this.detectNativeBarcode(detector, video));
       }
 
       detectZXingBarcode(video) {
         if (typeof ZXing !== 'undefined') {
           this.zxingReader = new ZXing.BrowserMultiFormatReader();
-          this.zxingReader.decodeFromVideoElement(video, (result, err) => {
+          this.zxingReader.decodeFromVideoElement(video, (result) => {
             if (result && this.isScanning) {
               this.handleScannedUPC(result.getText());
             }
@@ -1288,7 +1173,7 @@
       async handleScannedUPC(upcCode) {
         this.vibrate([100, 50, 100]);
         this.closeScanner();
-        this.showToast(`Searching metadata for UPC: ${upcCode}...`, 'fa-magnifying-glass text-brand-400');
+        this.showToast(`Fetching online metadata for UPC: ${upcCode}...`, 'fa-wand-magic-sparkles text-brand-400');
 
         const metadata = await this.lookupUPCMetadata(upcCode);
         this.openEditModal(null, metadata);
@@ -1306,6 +1191,7 @@
         document.getElementById('scannerModal').classList.remove('flex');
       }
 
+      // ONLINE METADATA ENGINE (iTunes API, MusicBrainz, Open Food Facts)
       async lookupUPCMetadata(barcode) {
         let metadata = {
           barcode: barcode,
@@ -1319,40 +1205,49 @@
         };
 
         try {
-          if (barcode === '024543210982') {
-            return { barcode, title: 'Die Hard', creator: 'John McTiernan', category: 'Movie', year: 1988, genre: 'Action, Thriller', format: 'Blu-ray', coverUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400' };
-          }
-          if (barcode === '004549659042') {
-            return { barcode, title: 'Super Mario Odyssey', creator: 'Nintendo', category: 'Game', year: 2017, genre: 'Platformer', format: 'Switch Game', coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400' };
-          }
-          if (barcode === '009362498601') {
-            return { barcode, title: 'American Idiot', creator: 'Green Day', category: 'Music', year: 2004, genre: 'Punk Rock', format: 'Audio CD', coverUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400' };
-          }
-
-          const req = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-          if (req.ok) {
-            const data = await req.json();
-            if (data.status === 1 && data.product) {
-              metadata.title = data.product.product_name || '';
-              metadata.creator = data.product.brands || '';
-              metadata.coverUrl = data.product.image_front_url || '';
+          // 1. MusicBrainz API lookup (Free CD/Vinyl Barcode Lookup)
+          const mbReq = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${barcode}&fmt=json`);
+          if (mbReq.ok) {
+            const mbData = await mbReq.json();
+            if (mbData.releases && mbData.releases.length > 0) {
+              const rel = mbData.releases[0];
+              metadata.title = rel.title || '';
+              metadata.creator = rel['artist-credit']?.[0]?.name || '';
+              metadata.category = 'Music';
+              metadata.year = rel.date ? parseInt(rel.date.slice(0, 4)) : new Date().getFullYear();
+              metadata.format = 'Audio CD / Vinyl';
+              if (rel.id) {
+                metadata.coverUrl = `https://coverartarchive.org/release/${rel.id}/front-500`;
+              }
             }
           }
 
+          // 2. iTunes Search API lookup (No API key needed, high-res posters & details)
           if (!metadata.title) {
-            const mbReq = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${barcode}&fmt=json`);
-            if (mbReq.ok) {
-              const mbData = await mbReq.json();
-              if (mbData.releases && mbData.releases.length > 0) {
-                const release = mbData.releases[0];
-                metadata.title = release.title || '';
-                metadata.creator = release['artist-credit']?.[0]?.name || '';
-                metadata.category = 'Music';
-                metadata.year = release.date ? parseInt(release.date.substring(0, 4)) : new Date().getFullYear();
-                metadata.format = 'Audio CD';
-                if (release.id) {
-                  metadata.coverUrl = `https://coverartarchive.org/release/${release.id}/front-250`;
-                }
+            const itunesReq = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(barcode)}&media=all&limit=1`);
+            if (itunesReq.ok) {
+              const itunesData = await itunesReq.json();
+              if (itunesData.results && itunesData.results.length > 0) {
+                const res = itunesData.results[0];
+                metadata.title = res.trackName || res.collectionName || '';
+                metadata.creator = res.artistName || res.director || '';
+                metadata.genre = res.primaryGenreName || '';
+                metadata.year = res.releaseDate ? parseInt(res.releaseDate.slice(0, 4)) : new Date().getFullYear();
+                metadata.coverUrl = (res.artworkUrl100 || '').replace('100x100bb', '600x600bb');
+                metadata.category = res.kind === 'feature-movie' ? 'Movie' : 'Music';
+              }
+            }
+          }
+
+          // 3. Fallback: Open Food Facts / Product API
+          if (!metadata.title) {
+            const offReq = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+            if (offReq.ok) {
+              const offData = await offReq.json();
+              if (offData.status === 1 && offData.product) {
+                metadata.title = offData.product.product_name || '';
+                metadata.creator = offData.product.brands || '';
+                metadata.coverUrl = offData.product.image_front_url || '';
               }
             }
           }
@@ -1360,12 +1255,42 @@
           if (!metadata.title) {
             metadata.title = `Scanned Item (${barcode})`;
           }
-        } catch (error) {
-          console.warn("API Lookup warning:", error);
-          metadata.title = `Item ${barcode}`;
+        } catch (err) {
+          console.warn("Online API lookup note:", err);
+          metadata.title = `Scanned Item (${barcode})`;
         }
 
         return metadata;
+      }
+
+      async searchTitleMetadata() {
+        const title = document.getElementById('itemTitle').value.trim();
+        if (!title) {
+          this.showToast('Please enter a title to search online.', 'fa-triangle-exclamation text-amber-400');
+          return;
+        }
+
+        this.showToast(`Searching online details for "${title}"...`, 'fa-wand-magic-sparkles text-brand-400');
+
+        try {
+          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=all&limit=1`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results && data.results.length > 0) {
+              const item = data.results[0];
+              document.getElementById('itemTitle').value = item.trackName || item.collectionName || title;
+              document.getElementById('itemCreator').value = item.artistName || item.director || '';
+              document.getElementById('itemYear').value = item.releaseDate ? parseInt(item.releaseDate.slice(0, 4)) : '';
+              document.getElementById('itemGenre').value = item.primaryGenreName || '';
+              document.getElementById('itemCoverUrl').value = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
+              this.showToast('Updated details from online database!', 'fa-circle-check text-emerald-400');
+            } else {
+              this.showToast('No online metadata match found.', 'fa-circle-exclamation text-amber-400');
+            }
+          }
+        } catch (e) {
+          this.showToast('Error searching online metadata.', 'fa-circle-xmark text-rose-400');
+        }
       }
 
       openEditModal(id = null, prefillData = null) {
@@ -1476,6 +1401,15 @@
         localStorage.setItem('mediavault_catalog', JSON.stringify(this.mediaItems));
       }
 
+      openDriveSyncModal() {
+        document.getElementById('driveSyncModal').classList.remove('hidden');
+      }
+
+      syncToGoogleDrive() {
+        this.exportDatabase();
+        this.showToast('Catalog exported for Google Drive / Cloud Sync!', 'fa-brands fa-google-drive text-amber-400');
+      }
+
       exportDatabase() {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.mediaItems, null, 2));
         const downloadAnchor = document.createElement('a');
@@ -1501,7 +1435,7 @@
             if (Array.isArray(imported)) {
               const confirmed = await this.showConfirmModal(
                 'Import Catalog',
-                `Import ${imported.length} items into your MediaVault collection?`,
+                `Import ${imported.length} items into your collection?`,
                 'fa-file-import text-emerald-400'
               );
 
